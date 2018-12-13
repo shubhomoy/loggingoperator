@@ -1,0 +1,24 @@
+apiVersion: logging.jiocloud.com/v1alpha1
+kind: LogManagement
+metadata:
+  name: log-manager
+spec:
+  fluentbit-logfile: /var/log/fluentbit.log
+  include-k8s-metadata: false
+  elasticsearch: true
+  kibana: true
+  inputs:
+    - deployment-name: sample-pod
+      tag: kube.*
+      parser: apache
+    - deployment-name: my-pod
+      tag: test
+      parser: my-parser
+  parsers:
+    - name: apache
+      regex: '^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<log_time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>.*)")?$'
+    - name: my-parser
+      regex: "{*&*df}"
+  outputs:
+    - type: stdout
+  
