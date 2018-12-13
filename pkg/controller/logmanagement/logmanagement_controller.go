@@ -3,6 +3,7 @@ package logmanagement
 import (
 	"context"
 
+	"github.com/log_management/logging-operator/cmd/manager/elasticsearch"
 	"github.com/log_management/logging-operator/cmd/manager/fluentbit"
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -146,6 +147,26 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info("Creating DaemonSet")
 		err = controllerutil.SetControllerReference(instance, daemonset, r.scheme)
 		err = r.client.Create(context.TODO(), daemonset)
+	}
+
+	// Creating ES
+	es := elasticsearch.CreateElasticsearchDeployment(instance)
+	esFound := &extensionv1.Deployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: es.Name, Namespace: es.Namespace}, esFound)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating Elasticsearch")
+		err = controllerutil.SetControllerReference(instance, es, r.scheme)
+		err = r.client.Create(context.TODO(), es)
+	}
+
+	// Creating ES service
+	esService := elasticsearch.CreateElasticsearchService(instance)
+	esServiceFound := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: esService.Name, Namespace: esService.Namespace}, esServiceFound)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating Elasticsearch Service")
+		err = controllerutil.SetControllerReference(instance, esService, r.scheme)
+		err = r.client.Create(context.TODO(), esService)
 	}
 
 	return reconcile.Result{Requeue: true}, nil
