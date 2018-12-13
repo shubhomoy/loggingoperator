@@ -7,6 +7,7 @@ spec:
   include-k8s-metadata: false
   elasticsearch: true
   kibana: true
+  es-kib-version: "6.4.2"
   inputs:
     - deployment-name: sample-pod
       tag: kube.*

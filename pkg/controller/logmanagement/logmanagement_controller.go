@@ -5,6 +5,7 @@ import (
 
 	"github.com/log_management/logging-operator/cmd/manager/elasticsearch"
 	"github.com/log_management/logging-operator/cmd/manager/fluentbit"
+	"github.com/log_management/logging-operator/cmd/manager/kibana"
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	extensionv1 "k8s.io/api/extensions/v1beta1"
@@ -167,6 +168,26 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info("Creating Elasticsearch Service")
 		err = controllerutil.SetControllerReference(instance, esService, r.scheme)
 		err = r.client.Create(context.TODO(), esService)
+	}
+
+	// Creating Kibana deployment
+	kib := kibana.CreateKibanaDeployment(instance, esService)
+	kibanaFound := &extensionv1.Deployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kib.Name, Namespace: kib.Namespace}, kibanaFound)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating Kibana Deployment")
+		err = controllerutil.SetControllerReference(instance, kib, r.scheme)
+		err = r.client.Create(context.TODO(), kib)
+	}
+
+	// Creating Kibana service
+	kibanaService := kibana.CreateKibanaService(instance)
+	kibanaServiceFound := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kibanaService.Name, Namespace: kibanaService.Namespace}, kibanaServiceFound)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating Kibana Service")
+		err = controllerutil.SetControllerReference(instance, kibanaService, r.scheme)
+		err = r.client.Create(context.TODO(), kibanaService)
 	}
 
 	return reconcile.Result{Requeue: true}, nil

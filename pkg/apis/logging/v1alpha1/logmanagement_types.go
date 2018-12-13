@@ -11,6 +11,7 @@ import (
 type LogManagementSpec struct {
 	FluentBitLogFile      string   `json:"fluentbit-logfile"`
 	K8sMetadata           bool     `json:"include-k8s-metadata"`
+	ESKibanaVersion       string   `json:"es-kib-version"`
 	Inputs                []Input  `json:"inputs"`
 	Parsers               []Parser `json:"parsers"`
 	Outputs               []Output `json:"outputs"`

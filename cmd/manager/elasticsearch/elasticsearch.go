@@ -40,7 +40,7 @@ func CreateElasticsearchDeployment(cr *loggingv1alpha1.LogManagement) *extension
 					Containers: []core1.Container{
 						{
 							Name:  "elasticsearch",
-							Image: "docker.elastic.co/elasticsearch/elasticsearch:6.4.2",
+							Image: "docker.elastic.co/elasticsearch/elasticsearch:" + cr.Spec.ESKibanaVersion,
 							Ports: []core1.ContainerPort{
 								{
 									ContainerPort: 9200,
@@ -79,8 +79,6 @@ func CreateElasticsearchService(cr *loggingv1alpha1.LogManagement) *core1.Servic
 					},
 				},
 			},
-
-			Type: "LoadBalancer",
 		},
 	}
 }
