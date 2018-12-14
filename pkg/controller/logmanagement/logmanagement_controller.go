@@ -5,6 +5,7 @@ import (
 
 	"github.com/log_management/logging-operator/cmd/manager/elasticsearch"
 	"github.com/log_management/logging-operator/cmd/manager/fluentbit"
+	"github.com/log_management/logging-operator/cmd/manager/fluentd"
 	"github.com/log_management/logging-operator/cmd/manager/kibana"
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -127,6 +128,16 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		err = r.client.Create(context.TODO(), roleBinding)
 	}
 
+	// Creating FluentD service
+	fluentdService := fluentd.CreateFluentDService(instance)
+	fluentdServiceFound := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentdService.Name, Namespace: fluentdService.Namespace}, fluentdServiceFound)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating FluentD Service")
+		err = controllerutil.SetControllerReference(instance, fluentdService, r.scheme)
+		err = r.client.Create(context.TODO(), fluentdService)
+	}
+
 	// Creating Config Map
 	cm, err := fluentbit.CreateConfigMap(instance)
 	if err != nil {
@@ -188,6 +199,26 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info("Creating Kibana Service")
 		err = controllerutil.SetControllerReference(instance, kibanaService, r.scheme)
 		err = r.client.Create(context.TODO(), kibanaService)
+	}
+
+	// Creating FluentD configmap
+	fluentDConfigMap := fluentd.CreateConfigMap(instance)
+	foundFluentDConfigMap := &corev1.ConfigMap{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDConfigMap.Name, Namespace: fluentDConfigMap.Namespace}, foundFluentDConfigMap)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating FluentD Config Map")
+		err = controllerutil.SetControllerReference(instance, fluentDConfigMap, r.scheme)
+		err = r.client.Create(context.TODO(), fluentDConfigMap)
+	}
+
+	// Creating FluentD DS
+	fluentDDaemonSet := fluentd.CreateDaemonSet(instance, esService)
+	foundFluentDDs := &extensionv1.Deployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDDaemonSet.Name, Namespace: fluentDDaemonSet.Namespace}, foundFluentDDs)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating FluentD DaemonSet")
+		err = controllerutil.SetControllerReference(instance, fluentDDaemonSet, r.scheme)
+		err = r.client.Create(context.TODO(), fluentDDaemonSet)
 	}
 
 	return reconcile.Result{Requeue: true}, nil

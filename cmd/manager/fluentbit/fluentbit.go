@@ -49,8 +49,7 @@ func generateVolumeMounts() []corev1.VolumeMount {
 		},
 		{
 			Name:      "fluent-bit-config",
-			MountPath: "/fluent-bit/etc/fluent-bit.conf",
-			SubPath:   "fluent-bit.conf",
+			MountPath: "/fluent-bit/etc/",
 		},
 		{
 			Name:      "varlibcontainers",
@@ -238,7 +237,7 @@ func CreateConfigMap(cr *loggingv1alpha1.LogManagement) (*corev1.ConfigMap, erro
 
 		Data: map[string]string{
 			"fluent-bit.conf": *configMap,
-			"parser.conf":     *parserMap,
+			"parsers.conf":    *parserMap,
 		},
 	}, nil
 }

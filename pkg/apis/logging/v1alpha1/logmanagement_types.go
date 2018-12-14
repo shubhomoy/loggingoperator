@@ -51,6 +51,7 @@ type Input struct {
 	DeploymentName string `json:"deployment-name"`
 	Tag            string `json:"tag"`
 	Parser         string `json:"parser"`
+	IndexPattern   string `json:"index-pattern"`
 }
 
 // Parser adds

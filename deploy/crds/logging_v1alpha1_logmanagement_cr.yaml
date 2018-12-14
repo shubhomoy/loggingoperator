@@ -4,22 +4,18 @@ metadata:
   name: log-manager
 spec:
   fluentbit-logfile: /var/log/fluentbit.log
-  include-k8s-metadata: false
+  include-k8s-metadata: true
   elasticsearch: true
   kibana: true
   es-kib-version: "6.4.2"
   inputs:
     - deployment-name: sample-pod
-      tag: kube.*
+      tag: kube
       parser: apache
-    - deployment-name: my-pod
-      tag: test
-      parser: my-parser
+      index-pattern: sample-pod
   parsers:
     - name: apache
       regex: '^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<log_time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>.*)")?$'
-    - name: my-parser
-      regex: "{*&*df}"
   outputs:
     - type: stdout
   

@@ -14,26 +14,32 @@ var configmapTemplate = `
 {{- range .Inputs}}
 [INPUT]
 	Name              tail
-	Tag               {{ .Tag }}
+	Tag               {{ .Tag }}.*
 	Path              /var/log/containers/{{ .DeploymentName }}*
 	Parser            json_parser
-{{- end}}
-
-{{ if .K8sMetadata -}}
-[FILTER]
-	Name                kubernetes
-	Match               *
-	K8S-Logging.Parser  On
-	Merge_Log           On
 {{- end}}
 
 {{- range .Inputs}}
 [FILTER]
 	Name       parser
-	Match      {{ .Tag }}
+	Match      {{ .Tag }}.*
 	Key_Name   log
 	Parser     {{ .Parser }}
 {{- end}}
+
+{{ if .K8sMetadata -}}
+[FILTER]
+	Name                kubernetes
+	Match               **
+	K8S-Logging.Parser  On
+	Merge_Log           On
+{{- end}}
+
+[OUTPUT]
+	Name            forward
+	Match           *
+	Host            ${FLUENTD_SERVICE_HOST}
+	Port            ${FLUENTD_SERVICE_PORT}
 
 [OUTPUT]
 	Name            stdout
