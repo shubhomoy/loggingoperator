@@ -33,12 +33,6 @@ spec:
             failureThreshold: 1
           env:
             - name: WATCH_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
+              value: ""
             - name: OPERATOR_NAME
               value: "logging-operator"

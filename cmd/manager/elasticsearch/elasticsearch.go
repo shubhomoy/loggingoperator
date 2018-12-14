@@ -22,7 +22,7 @@ func CreateElasticsearchDeployment(cr *loggingv1alpha1.LogManagement) *extension
 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "elasticsearch",
-			Namespace: "default",
+			Namespace: cr.Spec.LogManagementNamespace,
 			Labels:    label,
 		},
 
@@ -64,7 +64,7 @@ func CreateElasticsearchService(cr *loggingv1alpha1.LogManagement) *core1.Servic
 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "elasticsearch",
-			Namespace: "default",
+			Namespace: cr.Spec.LogManagementNamespace,
 		},
 
 		Spec: core1.ServiceSpec{

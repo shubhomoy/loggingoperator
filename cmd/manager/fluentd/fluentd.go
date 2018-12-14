@@ -22,7 +22,7 @@ func CreateFluentDService(cr *loggingv1alpha1.LogManagement) *corev1.Service {
 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "fluentd",
-			Namespace: "default",
+			Namespace: cr.Spec.LogManagementNamespace,
 		},
 
 		Spec: corev1.ServiceSpec{
@@ -60,7 +60,7 @@ func CreateConfigMap(cr *loggingv1alpha1.LogManagement) *corev1.ConfigMap {
 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "fluentd-config",
-			Namespace: "default",
+			Namespace: cr.Spec.LogManagementNamespace,
 		},
 
 		Data: map[string]string{
@@ -77,7 +77,7 @@ func CreateDaemonSet(cr *loggingv1alpha1.LogManagement, esService *corev1.Servic
 	return &extensionv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "fluentd",
-			Namespace: "default",
+			Namespace: cr.Spec.LogManagementNamespace,
 			Labels:    labels},
 		Spec: extensionv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{

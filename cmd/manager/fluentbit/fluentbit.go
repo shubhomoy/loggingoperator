@@ -99,7 +99,7 @@ func CreateDaemonSet(cr *loggingv1alpha1.LogManagement, serviceAccount corev1.Se
 	return &extensionv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "fluent-bit",
-			Namespace: "default",
+			Namespace: cr.Spec.LogManagementNamespace,
 			Labels:    labels},
 		Spec: extensionv1.DaemonSetSpec{
 			Template: corev1.PodTemplateSpec{
@@ -145,7 +145,7 @@ func CreateServiceAccount(cr *loggingv1alpha1.LogManagement) *corev1.ServiceAcco
 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "fluent-bit",
-			Namespace: "default",
+			Namespace: cr.Spec.LogManagementNamespace,
 		},
 	}
 }
@@ -180,7 +180,7 @@ func CreateRoleBinding(cr *loggingv1alpha1.LogManagement) *rbacv1.ClusterRoleBin
 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "fluent-bit-read",
-			Namespace: "default",
+			Namespace: cr.Spec.LogManagementNamespace,
 		},
 
 		RoleRef: rbacv1.RoleRef{
@@ -192,7 +192,7 @@ func CreateRoleBinding(cr *loggingv1alpha1.LogManagement) *rbacv1.ClusterRoleBin
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      "fluent-bit",
-			Namespace: "default",
+			Namespace: cr.Spec.LogManagementNamespace,
 		}},
 	}
 }
@@ -232,7 +232,7 @@ func CreateConfigMap(cr *loggingv1alpha1.LogManagement) (*corev1.ConfigMap, erro
 			Labels: map[string]string{
 				"k8s-app": "fluent-bit",
 			},
-			Namespace: "default",
+			Namespace: cr.Spec.LogManagementNamespace,
 		},
 
 		Data: map[string]string{

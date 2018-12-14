@@ -9,14 +9,15 @@ import (
 
 // LogManagementSpec defines the desired state of LogManagement
 type LogManagementSpec struct {
-	FluentBitLogFile      string   `json:"fluentbit-logfile"`
-	K8sMetadata           bool     `json:"include-k8s-metadata"`
-	ESKibanaVersion       string   `json:"es-kib-version"`
-	Inputs                []Input  `json:"inputs"`
-	Parsers               []Parser `json:"parsers"`
-	Outputs               []Output `json:"outputs"`
-	ElasticSearchRequired bool     `json:"elasticsearch"`
-	KibanaRequired        bool     `json:"kibana"`
+	FluentBitLogFile       string   `json:"fluentbit-logfile"`
+	K8sMetadata            bool     `json:"include-k8s-metadata"`
+	ESKibanaVersion        string   `json:"es-kib-version"`
+	LogManagementNamespace string   `json:"namespace"`
+	Inputs                 []Input  `json:"inputs"`
+	Parsers                []Parser `json:"parsers"`
+	Outputs                []Output `json:"outputs"`
+	ElasticSearchRequired  bool     `json:"elasticsearch"`
+	KibanaRequired         bool     `json:"kibana"`
 }
 
 // LogManagementStatus defines the observed state of LogManagement
