@@ -47,7 +47,7 @@ func CreateConfigMap(cr *loggingv1alpha1.LogManagement) *corev1.ConfigMap {
 	templateInput := TemplateInput{}
 
 	for _, i := range cr.Spec.Inputs {
-		templateInput.Inputs = append(templateInput.Inputs, Input{DeploymentName: i.DeploymentName, Tag: i.Tag, Parser: i.Parser})
+		templateInput.Inputs = append(templateInput.Inputs, Input{DeploymentName: i.DeploymentName, Tag: i.Tag})
 	}
 
 	configMap := generateConfig(templateInput, configmapTemplate)
@@ -172,7 +172,6 @@ type TemplateInput struct {
 type Input struct {
 	DeploymentName string
 	Tag            string
-	Parser         string
 }
 
 func generateConfig(TemplateInput TemplateInput, configmapTemplate string) *string {

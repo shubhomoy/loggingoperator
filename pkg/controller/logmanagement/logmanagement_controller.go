@@ -6,6 +6,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"reflect"
+
 	"github.com/log_management/logging-operator/cmd/manager/tools"
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
 	extensionv1 "k8s.io/api/extensions/v1beta1"
@@ -135,7 +137,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		CreateK8sObject(instance, fluentdService, r)
 	}
 
-	// Creating Config Map
+	// Creating FluentBit Config Map
 	configMap := tools.FluentBit.GetConfigMap()
 	existingFluentBitConfigMap := &corev1.ConfigMap{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace}, existingFluentBitConfigMap)
@@ -205,6 +207,26 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD DaemonSet")
 		CreateK8sObject(instance, fluentDDaemonSet, r)
+	}
+
+	/*
+		// Updation
+	*/
+	eq := reflect.DeepEqual(existingFluentBitConfigMap.Data, configMap.Data)
+	if !eq {
+		reqLogger.Info("FluentBit Config Changed. Updating...")
+		existingFluentBitConfigMap.Data = configMap.Data
+		err = r.client.Update(context.TODO(), existingFluentBitConfigMap)
+		if err != nil {
+			reqLogger.Error(err, "Failed")
+		} else {
+			err = r.client.Delete(context.TODO(), existingFluentBitDaemonSet)
+			if err != nil {
+				reqLogger.Error(err, "Failed to remove FluentBit DaemonSet")
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
 	}
 
 	return reconcile.Result{Requeue: true}, nil

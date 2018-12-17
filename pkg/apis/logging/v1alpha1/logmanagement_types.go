@@ -51,14 +51,14 @@ type LogManagementList struct {
 type Input struct {
 	DeploymentName string `json:"deployment-name"`
 	Tag            string `json:"tag"`
-	Parser         string `json:"parser"`
 	IndexPattern   string `json:"index-pattern"`
 }
 
 // Parser adds
 type Parser struct {
-	Name  string `json:"name"`
-	Regex string `json:"regex,omitempty"`
+	Name     string `json:"name"`
+	Regex    string `json:"regex,omitempty"`
+	Selector string `json:"selector"`
 }
 
 // Output spec

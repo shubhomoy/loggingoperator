@@ -19,12 +19,12 @@ var configmapTemplate = `
 	Parser            json_parser
 {{- end}}
 
-{{- range .Inputs}}
+{{- range .Parsers}}
 [FILTER]
 	Name       parser
-	Match      {{ .Tag }}.*
+	Match      {{ .Selector }}.*
 	Key_Name   log
-	Parser     {{ .Parser }}
+	Parser     {{ .Name }}
 {{- end}}
 
 {{ if .K8sMetadata -}}

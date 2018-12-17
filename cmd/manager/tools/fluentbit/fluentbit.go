@@ -2,7 +2,6 @@ package fluentbit
 
 import (
 	"bytes"
-	"errors"
 	"text/template"
 
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
@@ -11,21 +10,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func validateConfigMap(cr *loggingv1alpha1.LogManagement) error {
-	for _, in := range cr.Spec.Inputs {
-		present := false
-		for _, par := range cr.Spec.Parsers {
-			if in.Parser == par.Name {
-				present = true
-				break
-			}
-		}
-		if !present {
-			return errors.New("Parser not found")
-		}
-	}
-	return nil
-}
+// func validateConfigMap(cr *loggingv1alpha1.LogManagement) error {
+// 	for _, in := range cr.Spec.Inputs {
+// 		present := false
+// 		for _, par := range cr.Spec.Parsers {
+// 			if in.Parser == par.Name {
+// 				present = true
+// 				break
+// 			}
+// 		}
+// 		if !present {
+// 			return errors.New("Parser not found")
+// 		}
+// 	}
+// 	return nil
+// }
 
 func generateEnvironmentVariables() []corev1.EnvVar {
 	return []corev1.EnvVar{
@@ -137,26 +136,26 @@ func CreateDaemonSet(cr *loggingv1alpha1.LogManagement, serviceAccount *corev1.S
 // CreateConfigMap - generate config map
 func CreateConfigMap(cr *loggingv1alpha1.LogManagement) *corev1.ConfigMap {
 
-	err := validateConfigMap(cr)
+	// err := validateConfigMap(cr)
 
-	if err != nil {
-		return nil
-	}
+	// if err != nil {
+	// 	return nil
+	// }
 
 	templateInput := TemplateInput{
 		FluentBitLogFile: cr.Spec.FluentBitLogFile,
 		K8sMetadata:      cr.Spec.K8sMetadata,
 	}
 	for _, i := range cr.Spec.Inputs {
-		templateInput.Inputs = append(templateInput.Inputs, Input{DeploymentName: i.DeploymentName, Tag: i.Tag, Parser: i.Parser})
+		templateInput.Inputs = append(templateInput.Inputs, Input{DeploymentName: i.DeploymentName, Tag: i.Tag})
 	}
 
 	for _, i := range cr.Spec.Parsers {
-		templateInput.Parsers = append(templateInput.Parsers, Parser{Name: i.Name, Regex: i.Regex})
+		templateInput.Parsers = append(templateInput.Parsers, Parser{Name: i.Name, Regex: i.Regex, Selector: i.Selector})
 	}
 
-	configMap, err := generateConfig(templateInput, configmapTemplate)
-	parserMap, err := generateConfig(templateInput, parsersTemplate)
+	configMap, _ := generateConfig(templateInput, configmapTemplate)
+	parserMap, _ := generateConfig(templateInput, parsersTemplate)
 
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -191,13 +190,13 @@ type TemplateInput struct {
 type Input struct {
 	DeploymentName string
 	Tag            string
-	Parser         string
 }
 
 // Parser defines structure of Parsers
 type Parser struct {
-	Name  string
-	Regex string
+	Name     string
+	Regex    string
+	Selector string
 }
 
 func generateConfig(input TemplateInput, templateFile string) (*string, error) {
