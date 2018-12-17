@@ -2,13 +2,14 @@ package logmanagement
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/log_management/logging-operator/cmd/manager/elasticsearch"
-	"github.com/log_management/logging-operator/cmd/manager/fluentbit"
-	"github.com/log_management/logging-operator/cmd/manager/fluentd"
-	"github.com/log_management/logging-operator/cmd/manager/kibana"
-	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/log_management/logging-operator/cmd/manager/tools"
+	"github.com/log_management/logging-operator/cmd/manager/tools/fluentd"
+	"github.com/log_management/logging-operator/cmd/manager/tools/kibana"
+	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
 	extensionv1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -51,15 +52,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner LogManagement
-	// err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-	// 	IsController: true,
-	// 	OwnerType:    &loggingv1alpha1.LogManagement{},
-	// })
-	// if err != nil {
-	// 	return err
-	// }
+	err = c.Watch(&source.Kind{Type: &extensionv1.Deployment{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &loggingv1alpha1.LogManagement{},
+	})
 
 	return nil
 }
@@ -74,11 +70,6 @@ type ReconcileLogManagement struct {
 
 // Reconcile reads that state of the cluster for a LogManagement object and makes changes based on the state read
 // and what is in the LogManagement.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
-// Note:
-// The Controller will requeue the Request to be processed again if the returned error is non-nil or
-// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling LogManagement")
@@ -98,91 +89,91 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
-	// Creating Service Account
-	serviceAccount := fluentbit.CreateServiceAccount(instance)
-	foundServiceAccount := &corev1.ServiceAccount{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: serviceAccount.Name, Namespace: serviceAccount.Namespace}, foundServiceAccount)
+	// ------------------------------------
+	/* Accounts, Roles and Binding Setup
+	// ------------------------------------
+	*/
+
+	tools := tools.GetTools(instance)
+
+	namespace, svcAccount, role, binding := tools.SetupAccountsAndBindings()
+
+	existingNamespace := &corev1.Namespace{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: namespace.Name}, existingNamespace)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating Namespace")
+		CreateK8sObject(instance, namespace, r)
+	}
+
+	existingSvcAccount := &corev1.ServiceAccount{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: svcAccount.Name, Namespace: svcAccount.Namespace}, existingSvcAccount)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Service Account")
-		err = controllerutil.SetControllerReference(instance, serviceAccount, r.scheme)
-		err = r.client.Create(context.TODO(), serviceAccount)
+		CreateK8sObject(instance, svcAccount, r)
 	}
 
-	// Creating Cluster Role
-	clusterRole := fluentbit.CreateClusterRole(instance)
-	foundClusterRole := &rbacv1.ClusterRole{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: clusterRole.Name}, foundClusterRole)
+	existingRole := &rbacv1.ClusterRole{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: role.Name}, existingRole)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Cluster Role")
-		err = controllerutil.SetControllerReference(instance, clusterRole, r.scheme)
-		err = r.client.Create(context.TODO(), clusterRole)
+		CreateK8sObject(instance, role, r)
 	}
 
-	// Creating Role Binding
-	roleBinding := fluentbit.CreateRoleBinding(instance)
-	foundRoleBinding := &rbacv1.ClusterRoleBinding{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: roleBinding.Name}, foundRoleBinding)
+	existingBinding := &rbacv1.ClusterRoleBinding{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: binding.Name}, existingBinding)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Role Binding")
-		err = controllerutil.SetControllerReference(instance, roleBinding, r.scheme)
-		err = r.client.Create(context.TODO(), roleBinding)
+		CreateK8sObject(instance, binding, r)
 	}
 
+	// ------------------------------------
+
 	// Creating FluentD service
-	fluentdService := fluentd.CreateFluentDService(instance)
-	fluentdServiceFound := &corev1.Service{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentdService.Name, Namespace: fluentdService.Namespace}, fluentdServiceFound)
+	fluentdService := tools.FluentD.GetService()
+	existingfluentdService := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentdService.Name, Namespace: fluentdService.Namespace}, existingfluentdService)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD Service")
-		err = controllerutil.SetControllerReference(instance, fluentdService, r.scheme)
-		err = r.client.Create(context.TODO(), fluentdService)
+		CreateK8sObject(instance, fluentdService, r)
 	}
 
 	// Creating Config Map
-	cm, err := fluentbit.CreateConfigMap(instance)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	foundConfigMap := &corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cm.Name, Namespace: cm.Namespace}, foundConfigMap)
+	configMap := tools.FluentBit.GetConfigMap()
+	existingFluentBitConfigMap := &corev1.ConfigMap{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace}, existingFluentBitConfigMap)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating Config Map")
-		err = controllerutil.SetControllerReference(instance, cm, r.scheme)
-		err = r.client.Create(context.TODO(), cm)
+		reqLogger.Info("Creating FluentBit Config Map")
+		CreateK8sObject(instance, configMap, r)
 	}
 
-	// Creating DaemonSet
-	daemonset := fluentbit.CreateDaemonSet(instance, *serviceAccount)
-	foundDaemonSet := &extensionv1.DaemonSet{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: daemonset.Name, Namespace: daemonset.Namespace}, foundDaemonSet)
+	fluentBitDaemonSet := tools.FluentBit.GetDaemonSet()
+	existingFluentBitDaemonSet := &extensionv1.DaemonSet{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentBitDaemonSet.Name, Namespace: fluentBitDaemonSet.Namespace}, existingFluentBitDaemonSet)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating DaemonSet")
-		err = controllerutil.SetControllerReference(instance, daemonset, r.scheme)
-		err = r.client.Create(context.TODO(), daemonset)
+		reqLogger.Info("Creating FluentBit DaemonSet")
+		CreateK8sObject(instance, fluentBitDaemonSet, r)
 	}
 
 	// Creating ES
-	es := elasticsearch.CreateElasticsearchDeployment(instance)
-	esFound := &extensionv1.Deployment{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: es.Name, Namespace: es.Namespace}, esFound)
+	elasticsearch := tools.ElasticSearch.GetDeployment()
+	existingES := &extensionv1.Deployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticsearch.Name, Namespace: elasticsearch.Namespace}, existingES)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Elasticsearch")
-		err = controllerutil.SetControllerReference(instance, es, r.scheme)
-		err = r.client.Create(context.TODO(), es)
+		CreateK8sObject(instance, elasticsearch, r)
 	}
 
 	// Creating ES service
-	esService := elasticsearch.CreateElasticsearchService(instance)
-	esServiceFound := &corev1.Service{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: esService.Name, Namespace: esService.Namespace}, esServiceFound)
+	elasticSearchService := tools.ElasticSearch.GetService()
+	existingElasticSearchService := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticSearchService.Name, Namespace: elasticSearchService.Namespace}, existingElasticSearchService)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating Elasticsearch Service")
-		err = controllerutil.SetControllerReference(instance, esService, r.scheme)
-		err = r.client.Create(context.TODO(), esService)
+		reqLogger.Info("Creating ES Service")
+		CreateK8sObject(instance, elasticSearchService, r)
 	}
 
 	// Creating Kibana deployment
-	kib := kibana.CreateKibanaDeployment(instance, esService)
+	kib := kibana.CreateKibanaDeployment(instance, elasticSearchService)
 	kibanaFound := &extensionv1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kib.Name, Namespace: kib.Namespace}, kibanaFound)
 	if err != nil && errors.IsNotFound(err) {
@@ -201,18 +192,16 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		err = r.client.Create(context.TODO(), kibanaService)
 	}
 
-	// Creating FluentD configmap
-	fluentDConfigMap := fluentd.CreateConfigMap(instance)
-	foundFluentDConfigMap := &corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDConfigMap.Name, Namespace: fluentDConfigMap.Namespace}, foundFluentDConfigMap)
+	fluentDConfigMap := tools.FluentD.GetConfigMap()
+	existingFluentDConfigMap := &corev1.ConfigMap{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDConfigMap.Name, Namespace: fluentDConfigMap.Namespace}, existingFluentDConfigMap)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD Config Map")
-		err = controllerutil.SetControllerReference(instance, fluentDConfigMap, r.scheme)
-		err = r.client.Create(context.TODO(), fluentDConfigMap)
+		CreateK8sObject(instance, fluentDConfigMap, r)
 	}
 
 	// Creating FluentD DS
-	fluentDDaemonSet := fluentd.CreateDaemonSet(instance, esService)
+	fluentDDaemonSet := fluentd.CreateDaemonSet(instance, elasticSearchService)
 	foundFluentDDs := &extensionv1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDDaemonSet.Name, Namespace: fluentDDaemonSet.Namespace}, foundFluentDDs)
 	if err != nil && errors.IsNotFound(err) {
@@ -222,4 +211,46 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	return reconcile.Result{Requeue: true}, nil
+}
+
+// CreateK8sObject creates K8s object
+func CreateK8sObject(instance *loggingv1alpha1.LogManagement, obj interface{}, r *ReconcileLogManagement) {
+	var err error
+	switch obj.(type) {
+	case *corev1.ServiceAccount:
+		k8sObj := obj.(*corev1.ServiceAccount)
+		err = controllerutil.SetControllerReference(instance, k8sObj, r.scheme)
+		err = r.client.Create(context.TODO(), k8sObj)
+	case *rbacv1.ClusterRole:
+		k8sObj := obj.(*rbacv1.ClusterRole)
+		err = controllerutil.SetControllerReference(instance, k8sObj, r.scheme)
+		err = r.client.Create(context.TODO(), k8sObj)
+	case *rbacv1.ClusterRoleBinding:
+		k8sObj := obj.(*rbacv1.ClusterRoleBinding)
+		err = controllerutil.SetControllerReference(instance, k8sObj, r.scheme)
+		err = r.client.Create(context.TODO(), k8sObj)
+	case *corev1.Namespace:
+		k8sObj := obj.(*corev1.Namespace)
+		err = controllerutil.SetControllerReference(instance, k8sObj, r.scheme)
+		err = r.client.Create(context.TODO(), k8sObj)
+	case *corev1.ConfigMap:
+		k8sObj := obj.(*corev1.ConfigMap)
+		err = controllerutil.SetControllerReference(instance, k8sObj, r.scheme)
+		err = r.client.Create(context.TODO(), k8sObj)
+	case *corev1.Service:
+		k8sObj := obj.(*corev1.Service)
+		err = controllerutil.SetControllerReference(instance, k8sObj, r.scheme)
+		err = r.client.Create(context.TODO(), k8sObj)
+	case *extensionv1.DaemonSet:
+		k8sObj := obj.(*extensionv1.DaemonSet)
+		err = controllerutil.SetControllerReference(instance, k8sObj, r.scheme)
+		err = r.client.Create(context.TODO(), k8sObj)
+	case *extensionv1.Deployment:
+		k8sObj := obj.(*extensionv1.Deployment)
+		err = controllerutil.SetControllerReference(instance, k8sObj, r.scheme)
+		err = r.client.Create(context.TODO(), k8sObj)
+	}
+	if err != nil {
+		fmt.Println(err)
+	}
 }
