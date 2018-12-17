@@ -4,6 +4,7 @@ import (
 	"github.com/log_management/logging-operator/cmd/manager/tools/elasticsearch"
 	"github.com/log_management/logging-operator/cmd/manager/tools/fluentbit"
 	"github.com/log_management/logging-operator/cmd/manager/tools/fluentd"
+	"github.com/log_management/logging-operator/cmd/manager/tools/kibana"
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	extensionv1 "k8s.io/api/extensions/v1beta1"
@@ -23,6 +24,7 @@ type Tools struct {
 	FluentBit     FluentBit
 	FluentD       FluentD
 	ElasticSearch ElasticSearch
+	Kibana        Kibana
 }
 
 func (t *Tools) init() {
@@ -43,6 +45,10 @@ func (t *Tools) init() {
 	}
 
 	t.ElasticSearch = ElasticSearch{
+		cr: t.cr,
+	}
+
+	t.Kibana = Kibana{
 		cr: t.cr,
 	}
 }
@@ -92,9 +98,9 @@ func (f FluentD) GetService() *corev1.Service {
 }
 
 // GetDaemonSet returns FluentD DaemonSet
-// func (f FluentD) GetDaemonSet() *extensionv1.DaemonSet {
-// 	return fluentd.CreateDaemonSet(f.cr, f.serviceAccount)
-// }
+func (f FluentD) GetDaemonSet(elasticSearchService *corev1.Service) *extensionv1.Deployment {
+	return fluentd.CreateDaemonSet(f.cr, elasticSearchService)
+}
 
 // -------------------------------
 
@@ -111,6 +117,23 @@ func (e ElasticSearch) GetDeployment() *extensionv1.Deployment {
 // GetService returns ES service
 func (e ElasticSearch) GetService() *corev1.Service {
 	return elasticsearch.CreateElasticsearchService(e.cr)
+}
+
+// -------------------------------
+
+// Kibana structure
+type Kibana struct {
+	cr *loggingv1alpha1.LogManagement
+}
+
+// GetDeployment returns Kibana Deployment
+func (k *Kibana) GetDeployment(elasticSearchService *corev1.Service) *extensionv1.Deployment {
+	return kibana.CreateKibanaDeployment(k.cr, elasticSearchService)
+}
+
+// GetService returns Kibana Service
+func (k *Kibana) GetService() *corev1.Service {
+	return kibana.CreateKibanaService(k.cr)
 }
 
 /* -------------------------------

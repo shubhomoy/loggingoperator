@@ -7,8 +7,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/log_management/logging-operator/cmd/manager/tools"
-	"github.com/log_management/logging-operator/cmd/manager/tools/fluentd"
-	"github.com/log_management/logging-operator/cmd/manager/tools/kibana"
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
 	extensionv1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -146,6 +144,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		CreateK8sObject(instance, configMap, r)
 	}
 
+	// Creating FluentBit DS
 	fluentBitDaemonSet := tools.FluentBit.GetDaemonSet()
 	existingFluentBitDaemonSet := &extensionv1.DaemonSet{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentBitDaemonSet.Name, Namespace: fluentBitDaemonSet.Namespace}, existingFluentBitDaemonSet)
@@ -173,25 +172,24 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Creating Kibana deployment
-	kib := kibana.CreateKibanaDeployment(instance, elasticSearchService)
-	kibanaFound := &extensionv1.Deployment{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kib.Name, Namespace: kib.Namespace}, kibanaFound)
+	kibana := tools.Kibana.GetDeployment(elasticSearchService)
+	existingKibana := &extensionv1.Deployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kibana.Name, Namespace: kibana.Namespace}, existingKibana)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Kibana Deployment")
-		err = controllerutil.SetControllerReference(instance, kib, r.scheme)
-		err = r.client.Create(context.TODO(), kib)
+		CreateK8sObject(instance, kibana, r)
 	}
 
 	// Creating Kibana service
-	kibanaService := kibana.CreateKibanaService(instance)
-	kibanaServiceFound := &corev1.Service{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kibanaService.Name, Namespace: kibanaService.Namespace}, kibanaServiceFound)
+	kibanaService := tools.Kibana.GetService()
+	existingKibanaService := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kibanaService.Name, Namespace: kibanaService.Namespace}, existingKibanaService)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Kibana Service")
-		err = controllerutil.SetControllerReference(instance, kibanaService, r.scheme)
-		err = r.client.Create(context.TODO(), kibanaService)
+		CreateK8sObject(instance, kibanaService, r)
 	}
 
+	// Creating FluentD ConfigMap
 	fluentDConfigMap := tools.FluentD.GetConfigMap()
 	existingFluentDConfigMap := &corev1.ConfigMap{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDConfigMap.Name, Namespace: fluentDConfigMap.Namespace}, existingFluentDConfigMap)
@@ -201,13 +199,12 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Creating FluentD DS
-	fluentDDaemonSet := fluentd.CreateDaemonSet(instance, elasticSearchService)
-	foundFluentDDs := &extensionv1.Deployment{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDDaemonSet.Name, Namespace: fluentDDaemonSet.Namespace}, foundFluentDDs)
+	fluentDDaemonSet := tools.FluentD.GetDaemonSet(elasticSearchService)
+	existingFluentD := &extensionv1.Deployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDDaemonSet.Name, Namespace: fluentDDaemonSet.Namespace}, existingFluentD)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD DaemonSet")
-		err = controllerutil.SetControllerReference(instance, fluentDDaemonSet, r.scheme)
-		err = r.client.Create(context.TODO(), fluentDDaemonSet)
+		CreateK8sObject(instance, fluentDDaemonSet, r)
 	}
 
 	return reconcile.Result{Requeue: true}, nil
