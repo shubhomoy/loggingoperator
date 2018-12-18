@@ -1,3 +1,35 @@
+# v1 - deployment specific
+# apiVersion: logging.jiocloud.com/v1alpha1
+# kind: LogManagement
+# metadata:
+#   name: log-manager
+#   namespace: logging
+# spec:
+#   fluentbit-logfile: /var/log/fluentbits.log
+#   include-k8s-metadata: true
+#   elasticsearch: true
+#   kibana: true
+#   namespace: logging
+#   es-kib-version: "6.4.2"
+#   inputs:
+#     - deployment-name: sample-pod
+#       tag: sample
+#       parsers:
+#         - name: apache
+#         - name: apache_error
+#       outputs:
+#         - type: elasticsearch
+#           index-pattern: sample-pod
+#         - type: stdout
+#   parsers:
+#     - name: apache
+#       regex: '^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<log_time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>.*)")?$'
+#     - name: apache_error
+#       regex: '^\[[^ ]* (?<time>[^\]]*)\] \[(?<level>[^\]]*)\](?: \[pid (?<pid>[^\]]*)\])?( \[client (?<client>[^\]]*)\])? (?<message>.*)$'
+  
+
+
+# v2 - namespace specific
 apiVersion: logging.jiocloud.com/v1alpha1
 kind: LogManagement
 metadata:
@@ -10,15 +42,14 @@ spec:
   kibana: true
   namespace: logging
   es-kib-version: "6.4.2"
-  inputs:
-    - deployment-name: sample-pod
-      tag: sample
+  watch:
+    - namespace: sit
       parsers:
         - name: apache
         - name: apache_error
       outputs:
         - type: elasticsearch
-          index-pattern: sample-pod
+          index-pattern: sit
         - type: stdout
   parsers:
     - name: apache

@@ -13,6 +13,7 @@ type LogManagementSpec struct {
 	K8sMetadata            bool     `json:"include-k8s-metadata"`
 	ESKibanaVersion        string   `json:"es-kib-version"`
 	LogManagementNamespace string   `json:"namespace"`
+	Watch                  []Watch  `json:"watch"`
 	Inputs                 []Input  `json:"inputs"`
 	Parsers                []Parser `json:"parsers"`
 	ElasticSearchRequired  bool     `json:"elasticsearch"`
@@ -69,6 +70,13 @@ type InputParser struct {
 type Output struct {
 	Type         string `json:"type"`
 	IndexPattern string `json:"index-pattern"`
+}
+
+// Watch spec
+type Watch struct {
+	Namespace string        `json:"namespace"`
+	Parsers   []InputParser `json:"parsers"`
+	Outputs   []Output      `json:"outputs"`
 }
 
 func init() {

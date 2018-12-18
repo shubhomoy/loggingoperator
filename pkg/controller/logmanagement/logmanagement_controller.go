@@ -106,6 +106,10 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, nil
 	}
 
+	if len(instance.Spec.Watch) > 0 {
+		updateSpec(instance)
+	}
+
 	// ------------------------------------
 	/* Accounts, Roles and Binding Setup
 	// ------------------------------------
@@ -342,4 +346,20 @@ func CreateK8sObject(instance *loggingv1alpha1.LogManagement, obj interface{}, r
 	if err != nil {
 		fmt.Println(err)
 	}
+}
+
+func updateSpec(cr *loggingv1alpha1.LogManagement) {
+	var inputs []loggingv1alpha1.Input
+	for _, watcher := range cr.Spec.Watch {
+		input := loggingv1alpha1.Input{
+			DeploymentName: "*_" + watcher.Namespace + "_*",
+			Tag:            watcher.Namespace,
+			Parsers:        watcher.Parsers,
+			Outputs:        watcher.Outputs,
+		}
+
+		inputs = append(inputs, input)
+	}
+	cr.Spec.Watch = nil
+	cr.Spec.Inputs = inputs
 }
