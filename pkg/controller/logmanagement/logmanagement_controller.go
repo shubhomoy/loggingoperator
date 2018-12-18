@@ -55,6 +55,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		IsController: true,
 		OwnerType:    &loggingv1alpha1.LogManagement{},
 	})
+	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &loggingv1alpha1.LogManagement{},
+	})
+	err = c.Watch(&source.Kind{Type: &extensionv1.DaemonSet{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &loggingv1alpha1.LogManagement{},
+	})
 
 	return nil
 }
@@ -71,21 +79,31 @@ type ReconcileLogManagement struct {
 // and what is in the LogManagement.Spec
 func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling LogManagement")
+	// fmt.Println("-------------------------------------------------------------------")
+	// fmt.Println(request.NamespacedName)
+	// fmt.Println("-------------------------------------------------------------------")
 
 	// Fetch the LogManagement instance
 	instance := &loggingv1alpha1.LogManagement{}
 
+	// reqLogger.Info("Checking Log Management Instance")
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	// reqLogger.Info("Checking Log Management Instance - DONE")
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			reqLogger.Info("Log Management instance not found!")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
+		return reconcile.Result{}, nil
+	}
+
+	if request.Namespace != instance.Spec.LogManagementNamespace {
+		reqLogger.Info("Namespace mismatch")
+		return reconcile.Result{}, nil
 	}
 
 	// ------------------------------------
@@ -95,34 +113,42 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 
 	tools := tools.GetTools(instance)
 
-	namespace, svcAccount, role, binding := tools.SetupAccountsAndBindings()
+	svcAccount, role, binding := tools.SetupAccountsAndBindings()
 
-	existingNamespace := &corev1.Namespace{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: namespace.Name}, existingNamespace)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating Namespace")
-		CreateK8sObject(instance, namespace, r)
-		return reconcile.Result{Requeue: true}, nil
-	}
+	// reqLogger.Info("Checking Namespace")
+	// existingNamespace := &corev1.Namespace{}
+	// err = r.client.Get(context.TODO(), types.NamespacedName{Name: namespace.Name}, existingNamespace)
+	// reqLogger.Info("Checking Namespace - DONE")
+	// if err != nil && errors.IsNotFound(err) {
+	// 	reqLogger.Info("Creating Namespace")
+	// 	CreateK8sObject(instance, namespace, r)
+	// 	return reconcile.Result{Requeue: true}, nil
+	// }
 
+	// reqLogger.Info("Checking Service Acouunt")
 	existingSvcAccount := &corev1.ServiceAccount{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: svcAccount.Name, Namespace: svcAccount.Namespace}, existingSvcAccount)
+	// reqLogger.Info("Checking Service Acouunt - DONE")
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Service Account")
 		CreateK8sObject(instance, svcAccount, r)
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// reqLogger.Info("Checking CLuster Role")
 	existingRole := &rbacv1.ClusterRole{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: role.Name}, existingRole)
+	// reqLogger.Info("Checking Cluster Role - DONE")
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Cluster Role")
 		CreateK8sObject(instance, role, r)
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// reqLogger.Info("Checking Role Binding")
 	existingBinding := &rbacv1.ClusterRoleBinding{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: binding.Name}, existingBinding)
+	// reqLogger.Info("Checking Role Binding - DONE")
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Role Binding")
 		CreateK8sObject(instance, binding, r)
@@ -132,9 +158,11 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	// ------------------------------------
 
 	// Creating FluentD service
+	// reqLogger.Info("Checking FluentD Service")
 	fluentdService := tools.FluentD.GetService()
 	existingfluentdService := &corev1.Service{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentdService.Name, Namespace: fluentdService.Namespace}, existingfluentdService)
+	// reqLogger.Info("Checking FluentD Service - DONE")
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD Service")
 		CreateK8sObject(instance, fluentdService, r)
@@ -142,9 +170,11 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Creating FluentBit Config Map
+	// reqLogger.Info("Checking FluentBit ConfigMap")
 	configMap := tools.FluentBit.GetConfigMap()
 	existingFluentBitConfigMap := &corev1.ConfigMap{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace}, existingFluentBitConfigMap)
+	// reqLogger.Info("Checking FluentBit ConfigMap - DONE")
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentBit Config Map")
 		CreateK8sObject(instance, configMap, r)
@@ -152,9 +182,11 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Creating FluentBit DS
+	// reqLogger.Info("Checking FluentBit DS")
 	fluentBitDaemonSet := tools.FluentBit.GetDaemonSet()
 	existingFluentBitDaemonSet := &extensionv1.DaemonSet{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentBitDaemonSet.Name, Namespace: fluentBitDaemonSet.Namespace}, existingFluentBitDaemonSet)
+	// reqLogger.Info("Checking FluentBit DS - DONE")
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentBit DaemonSet")
 		CreateK8sObject(instance, fluentBitDaemonSet, r)
@@ -162,9 +194,11 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Creating ES
+	// reqLogger.Info("Checking ElasticSearch")
 	elasticsearch := tools.ElasticSearch.GetDeployment()
 	existingES := &extensionv1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticsearch.Name, Namespace: elasticsearch.Namespace}, existingES)
+	// reqLogger.Info("Checking ElasticSearch - DONE")
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Elasticsearch")
 		CreateK8sObject(instance, elasticsearch, r)
@@ -172,9 +206,11 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Creating ES service
+	// reqLogger.Info("Checking ElasticSearch Service")
 	elasticSearchService := tools.ElasticSearch.GetService()
 	existingElasticSearchService := &corev1.Service{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticSearchService.Name, Namespace: elasticSearchService.Namespace}, existingElasticSearchService)
+	// reqLogger.Info("Checking ElasticSearch Service - DONE")
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating ES Service")
 		CreateK8sObject(instance, elasticSearchService, r)
@@ -182,9 +218,11 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Creating Kibana deployment
+	// reqLogger.Info("Checking Kibana")
 	kibana := tools.Kibana.GetDeployment(existingElasticSearchService)
 	existingKibana := &extensionv1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kibana.Name, Namespace: kibana.Namespace}, existingKibana)
+	// reqLogger.Info("Checking Kibana - DONE")
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Kibana Deployment")
 		CreateK8sObject(instance, kibana, r)
@@ -192,9 +230,11 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Creating Kibana service
+	// reqLogger.Info("Checking Kibana Service")
 	kibanaService := tools.Kibana.GetService()
 	existingKibanaService := &corev1.Service{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kibanaService.Name, Namespace: kibanaService.Namespace}, existingKibanaService)
+	// reqLogger.Info("Checking Kibana Service - DONE")
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Kibana Service")
 		CreateK8sObject(instance, kibanaService, r)
@@ -202,9 +242,11 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Creating FluentD ConfigMap
+	// reqLogger.Info("Checking FluentD ConfigMap")
 	fluentDConfigMap := tools.FluentD.GetConfigMap()
 	existingFluentDConfigMap := &corev1.ConfigMap{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDConfigMap.Name, Namespace: fluentDConfigMap.Namespace}, existingFluentDConfigMap)
+	// reqLogger.Info("Checking FluentD ConfigMap - DONE")
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD Config Map")
 		CreateK8sObject(instance, fluentDConfigMap, r)
@@ -212,9 +254,11 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Creating FluentD DS
+	// reqLogger.Info("Checking FluentD DS")
 	fluentDDaemonSet := tools.FluentD.GetDaemonSet(existingElasticSearchService)
 	existingFluentD := &extensionv1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDDaemonSet.Name, Namespace: fluentDDaemonSet.Namespace}, existingFluentD)
+	// reqLogger.Info("Checking FluentD DS - DONE")
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD DaemonSet")
 		CreateK8sObject(instance, fluentDDaemonSet, r)
@@ -231,14 +275,11 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info("FluentBit Config Changed. Updating...")
 		existingFluentBitConfigMap.Data = configMap.Data
 		err = r.client.Update(context.TODO(), existingFluentBitConfigMap)
+		reqLogger.Info("FluentBit Config Updated.")
 		if err != nil {
 			reqLogger.Error(err, "Failed")
 		} else {
 			err = r.client.Delete(context.TODO(), existingFluentBitDaemonSet)
-			if err != nil {
-				reqLogger.Error(err, "Failed to remove FluentBit DaemonSet")
-				return reconcile.Result{}, err
-			}
 			return reconcile.Result{Requeue: true}, nil
 		}
 	}
@@ -249,14 +290,11 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info("FluentD Config Changed. Updating...")
 		existingFluentDConfigMap.Data = fluentDConfigMap.Data
 		err = r.client.Update(context.TODO(), existingFluentDConfigMap)
+		reqLogger.Info("FluentD Config Changed. Updating...")
 		if err != nil {
 			reqLogger.Error(err, "Failed")
 		} else {
 			err = r.client.Delete(context.TODO(), existingFluentD)
-			if err != nil {
-				reqLogger.Error(err, "Failed to remove FluentD")
-				return reconcile.Result{}, err
-			}
 			return reconcile.Result{Requeue: true}, nil
 		}
 	}

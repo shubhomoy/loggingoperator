@@ -2,6 +2,7 @@ apiVersion: logging.jiocloud.com/v1alpha1
 kind: LogManagement
 metadata:
   name: log-manager
+  namespace: logging
 spec:
   fluentbit-logfile: /var/log/fluentbits.log
   include-k8s-metadata: true
