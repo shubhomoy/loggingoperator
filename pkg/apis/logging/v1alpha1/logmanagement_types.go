@@ -15,7 +15,6 @@ type LogManagementSpec struct {
 	LogManagementNamespace string   `json:"namespace"`
 	Inputs                 []Input  `json:"inputs"`
 	Parsers                []Parser `json:"parsers"`
-	Outputs                []Output `json:"outputs"`
 	ElasticSearchRequired  bool     `json:"elasticsearch"`
 	KibanaRequired         bool     `json:"kibana"`
 }
@@ -49,21 +48,27 @@ type LogManagementList struct {
 
 // Input adds input spec
 type Input struct {
-	DeploymentName string `json:"deployment-name"`
-	Tag            string `json:"tag"`
-	IndexPattern   string `json:"index-pattern"`
+	DeploymentName string        `json:"deployment-name"`
+	Tag            string        `json:"tag"`
+	Parsers        []InputParser `json:"parsers"`
+	Outputs        []Output      `json:"outputs"`
 }
 
 // Parser adds
 type Parser struct {
-	Name     string `json:"name"`
-	Regex    string `json:"regex,omitempty"`
-	Selector string `json:"selector"`
+	Name  string `json:"name"`
+	Regex string `json:"regex,omitempty"`
+}
+
+// InputParser defines input parser structure
+type InputParser struct {
+	Name string `json:"name"`
 }
 
 // Output spec
 type Output struct {
-	Type string `json:"type"`
+	Type         string `json:"type"`
+	IndexPattern string `json:"index-pattern"`
 }
 
 func init() {

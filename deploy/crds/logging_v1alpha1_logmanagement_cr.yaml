@@ -11,12 +11,17 @@ spec:
   es-kib-version: "6.4.2"
   inputs:
     - deployment-name: sample-pod
-      tag: kube
-      parser: apache
-      index-pattern: sample-pod
+      tag: sample
+      parsers:
+        - name: apache
+        - name: apache_error
+      outputs:
+        - type: elasticsearch
+          index-pattern: sample-pod
+        - type: stdout
   parsers:
     - name: apache
       regex: '^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<log_time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>.*)")?$'
-  outputs:
-    - type: stdout
+    - name: apache_error
+      regex: '^\[[^ ]* (?<time>[^\]]*)\] \[(?<level>[^\]]*)\](?: \[pid (?<pid>[^\]]*)\])?( \[client (?<client>[^\]]*)\])? (?<message>.*)$'
   

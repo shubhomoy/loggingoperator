@@ -136,22 +136,24 @@ func CreateDaemonSet(cr *loggingv1alpha1.LogManagement, serviceAccount *corev1.S
 // CreateConfigMap - generate config map
 func CreateConfigMap(cr *loggingv1alpha1.LogManagement) *corev1.ConfigMap {
 
-	// err := validateConfigMap(cr)
-
-	// if err != nil {
-	// 	return nil
-	// }
-
 	templateInput := TemplateInput{
 		FluentBitLogFile: cr.Spec.FluentBitLogFile,
 		K8sMetadata:      cr.Spec.K8sMetadata,
 	}
 	for _, i := range cr.Spec.Inputs {
-		templateInput.Inputs = append(templateInput.Inputs, Input{DeploymentName: i.DeploymentName, Tag: i.Tag})
+		var parsers []InputParser
+		for _, p := range i.Parsers {
+			parsers = append(parsers, InputParser{Name: p.Name})
+		}
+		templateInput.Inputs = append(templateInput.Inputs, Input{
+			DeploymentName: i.DeploymentName,
+			Tag:            i.Tag,
+			Parsers:        parsers,
+		})
 	}
 
 	for _, i := range cr.Spec.Parsers {
-		templateInput.Parsers = append(templateInput.Parsers, Parser{Name: i.Name, Regex: i.Regex, Selector: i.Selector})
+		templateInput.Parsers = append(templateInput.Parsers, Parser{Name: i.Name, Regex: i.Regex})
 	}
 
 	configMap, _ := generateConfig(templateInput, configmapTemplate)
@@ -190,13 +192,18 @@ type TemplateInput struct {
 type Input struct {
 	DeploymentName string
 	Tag            string
+	Parsers        []InputParser
 }
 
 // Parser defines structure of Parsers
 type Parser struct {
-	Name     string
-	Regex    string
-	Selector string
+	Name  string
+	Regex string
+}
+
+// InputParser defines input parser structure
+type InputParser struct {
+	Name string
 }
 
 func generateConfig(input TemplateInput, templateFile string) (*string, error) {

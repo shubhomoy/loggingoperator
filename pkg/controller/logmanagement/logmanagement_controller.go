@@ -3,10 +3,9 @@ package logmanagement
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
-
-	"reflect"
 
 	"github.com/log_management/logging-operator/cmd/manager/tools"
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
@@ -103,6 +102,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Namespace")
 		CreateK8sObject(instance, namespace, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	existingSvcAccount := &corev1.ServiceAccount{}
@@ -110,6 +110,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Service Account")
 		CreateK8sObject(instance, svcAccount, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	existingRole := &rbacv1.ClusterRole{}
@@ -117,6 +118,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Cluster Role")
 		CreateK8sObject(instance, role, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	existingBinding := &rbacv1.ClusterRoleBinding{}
@@ -124,6 +126,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Role Binding")
 		CreateK8sObject(instance, binding, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// ------------------------------------
@@ -135,6 +138,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD Service")
 		CreateK8sObject(instance, fluentdService, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Creating FluentBit Config Map
@@ -144,6 +148,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentBit Config Map")
 		CreateK8sObject(instance, configMap, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Creating FluentBit DS
@@ -153,6 +158,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentBit DaemonSet")
 		CreateK8sObject(instance, fluentBitDaemonSet, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Creating ES
@@ -162,6 +168,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Elasticsearch")
 		CreateK8sObject(instance, elasticsearch, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Creating ES service
@@ -171,15 +178,17 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating ES Service")
 		CreateK8sObject(instance, elasticSearchService, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Creating Kibana deployment
-	kibana := tools.Kibana.GetDeployment(elasticSearchService)
+	kibana := tools.Kibana.GetDeployment(existingElasticSearchService)
 	existingKibana := &extensionv1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kibana.Name, Namespace: kibana.Namespace}, existingKibana)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Kibana Deployment")
 		CreateK8sObject(instance, kibana, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Creating Kibana service
@@ -189,6 +198,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Kibana Service")
 		CreateK8sObject(instance, kibanaService, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Creating FluentD ConfigMap
@@ -198,20 +208,24 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD Config Map")
 		CreateK8sObject(instance, fluentDConfigMap, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Creating FluentD DS
-	fluentDDaemonSet := tools.FluentD.GetDaemonSet(elasticSearchService)
+	fluentDDaemonSet := tools.FluentD.GetDaemonSet(existingElasticSearchService)
 	existingFluentD := &extensionv1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDDaemonSet.Name, Namespace: fluentDDaemonSet.Namespace}, existingFluentD)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD DaemonSet")
 		CreateK8sObject(instance, fluentDDaemonSet, r)
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	/*
 		// Updation
 	*/
+
+	// FluentBit Config Update
 	eq := reflect.DeepEqual(existingFluentBitConfigMap.Data, configMap.Data)
 	if !eq {
 		reqLogger.Info("FluentBit Config Changed. Updating...")
@@ -223,6 +237,24 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 			err = r.client.Delete(context.TODO(), existingFluentBitDaemonSet)
 			if err != nil {
 				reqLogger.Error(err, "Failed to remove FluentBit DaemonSet")
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
+	}
+
+	// FluentD config update
+	eq = reflect.DeepEqual(existingFluentDConfigMap.Data, fluentDConfigMap.Data)
+	if !eq {
+		reqLogger.Info("FluentD Config Changed. Updating...")
+		existingFluentDConfigMap.Data = fluentDConfigMap.Data
+		err = r.client.Update(context.TODO(), existingFluentDConfigMap)
+		if err != nil {
+			reqLogger.Error(err, "Failed")
+		} else {
+			err = r.client.Delete(context.TODO(), existingFluentD)
+			if err != nil {
+				reqLogger.Error(err, "Failed to remove FluentD")
 				return reconcile.Result{}, err
 			}
 			return reconcile.Result{Requeue: true}, nil

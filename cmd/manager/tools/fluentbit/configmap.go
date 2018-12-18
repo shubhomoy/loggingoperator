@@ -11,6 +11,7 @@ var configmapTemplate = `
 	HTTP_Port     2020
 	Parsers_File  parsers.conf
 
+
 {{- range .Inputs}}
 [INPUT]
 	Name              tail
@@ -19,13 +20,17 @@ var configmapTemplate = `
 	Parser            json_parser
 {{- end}}
 
-{{- range .Parsers}}
+{{- range $in := .Inputs}}
+	{{- range $par := $in.Parsers}}
+
 [FILTER]
 	Name       parser
-	Match      {{ .Selector }}.*
+	Match      {{ $in.Tag }}.*
 	Key_Name   log
-	Parser     {{ .Name }}
+	Parser     {{ $par.Name }}
+	{{- end}}
 {{- end}}
+
 
 {{ if .K8sMetadata -}}
 [FILTER]
@@ -40,8 +45,4 @@ var configmapTemplate = `
 	Match           *
 	Host            ${FLUENTD_SERVICE_HOST}
 	Port            ${FLUENTD_SERVICE_PORT}
-
-[OUTPUT]
-	Name            stdout
-	Match           *
 `
