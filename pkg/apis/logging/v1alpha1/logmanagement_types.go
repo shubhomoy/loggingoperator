@@ -9,15 +9,15 @@ import (
 
 // LogManagementSpec defines the desired state of LogManagement
 type LogManagementSpec struct {
-	FluentBitLogFile       string   `json:"fluentbit-logfile"`
-	K8sMetadata            bool     `json:"include-k8s-metadata"`
-	ESKibanaVersion        string   `json:"es-kib-version"`
-	LogManagementNamespace string   `json:"namespace"`
-	Watch                  []Watch  `json:"watch"`
-	Inputs                 []Input  `json:"inputs"`
-	Parsers                []Parser `json:"parsers"`
-	ElasticSearchRequired  bool     `json:"elasticsearch"`
-	KibanaRequired         bool     `json:"kibana"`
+	FluentBitLogFile       string        `json:"fluentbit-logfile"`
+	K8sMetadata            bool          `json:"include-k8s-metadata"`
+	ESKibanaVersion        string        `json:"es-kib-version"`
+	LogManagementNamespace string        `json:"namespace"`
+	Watch                  []Watch       `json:"watch"`
+	Inputs                 []Input       `json:"inputs"`
+	Parsers                []Parser      `json:"parsers"`
+	ElasticSearch          ElasticSearch `json:"elasticsearch-spec"`
+	KibanaRequired         bool          `json:"kibana"`
 }
 
 // LogManagementStatus defines the observed state of LogManagement
@@ -77,6 +77,13 @@ type Watch struct {
 	Namespace string        `json:"namespace"`
 	Parsers   []InputParser `json:"parsers"`
 	Outputs   []Output      `json:"outputs"`
+}
+
+// ElasticSearch spec
+type ElasticSearch struct {
+	Required bool   `json:"required"`
+	Host     string `json:"host"`
+	Port     string `json:"port"`
 }
 
 func init() {

@@ -2,8 +2,9 @@ package fluentd
 
 import (
 	"bytes"
-	"strconv"
 	"text/template"
+
+	"github.com/log_management/logging-operator/cmd/manager/utils"
 
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -74,7 +75,7 @@ func CreateConfigMap(cr *loggingv1alpha1.LogManagement) *corev1.ConfigMap {
 }
 
 // CreateDaemonSet creates daemonset for FluentBit
-func CreateDaemonSet(cr *loggingv1alpha1.LogManagement, esService *corev1.Service) *extensionv1.Deployment {
+func CreateDaemonSet(cr *loggingv1alpha1.LogManagement, esSpec *utils.ElasticSearchSpec) *extensionv1.Deployment {
 	labels := map[string]string{
 		"run": "fluentd",
 	}
@@ -102,7 +103,7 @@ func CreateDaemonSet(cr *loggingv1alpha1.LogManagement, esService *corev1.Servic
 									ContainerPort: 8777,
 								},
 							},
-							Env:          generateEnvironmentVariables(esService),
+							Env:          generateEnvironmentVariables(esSpec),
 							VolumeMounts: generateVolumeMounts(),
 						},
 					},
@@ -150,7 +151,7 @@ func generateVolumes() []corev1.Volume {
 	}
 }
 
-func generateEnvironmentVariables(esService *corev1.Service) []corev1.EnvVar {
+func generateEnvironmentVariables(esSpec *utils.ElasticSearchSpec) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "FLUENTD_CONF",
@@ -158,11 +159,11 @@ func generateEnvironmentVariables(esService *corev1.Service) []corev1.EnvVar {
 		},
 		{
 			Name:  "ES_PORT",
-			Value: strconv.FormatInt(int64(esService.Spec.Ports[0].Port), 10),
+			Value: esSpec.Port,
 		},
 		{
 			Name:  "ES_HOST",
-			Value: esService.Spec.ClusterIP,
+			Value: esSpec.Host,
 		},
 	}
 }

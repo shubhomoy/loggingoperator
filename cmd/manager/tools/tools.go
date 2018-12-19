@@ -5,6 +5,7 @@ import (
 	"github.com/log_management/logging-operator/cmd/manager/tools/fluentbit"
 	"github.com/log_management/logging-operator/cmd/manager/tools/fluentd"
 	"github.com/log_management/logging-operator/cmd/manager/tools/kibana"
+	"github.com/log_management/logging-operator/cmd/manager/utils"
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	extensionv1 "k8s.io/api/extensions/v1beta1"
@@ -98,8 +99,8 @@ func (f FluentD) GetService() *corev1.Service {
 }
 
 // GetDaemonSet returns FluentD DaemonSet
-func (f FluentD) GetDaemonSet(elasticSearchService *corev1.Service) *extensionv1.Deployment {
-	return fluentd.CreateDaemonSet(f.cr, elasticSearchService)
+func (f FluentD) GetDaemonSet(esSpec *utils.ElasticSearchSpec) *extensionv1.Deployment {
+	return fluentd.CreateDaemonSet(f.cr, esSpec)
 }
 
 // -------------------------------
@@ -127,8 +128,8 @@ type Kibana struct {
 }
 
 // GetDeployment returns Kibana Deployment
-func (k *Kibana) GetDeployment(elasticSearchService *corev1.Service) *extensionv1.Deployment {
-	return kibana.CreateKibanaDeployment(k.cr, elasticSearchService)
+func (k *Kibana) GetDeployment(esSpec *utils.ElasticSearchSpec) *extensionv1.Deployment {
+	return kibana.CreateKibanaDeployment(k.cr, esSpec)
 }
 
 // GetService returns Kibana Service

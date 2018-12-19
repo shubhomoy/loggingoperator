@@ -1,8 +1,7 @@
 package kibana
 
 import (
-	"strconv"
-
+	"github.com/log_management/logging-operator/cmd/manager/utils"
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	extensionv1 "k8s.io/api/extensions/v1beta1"
@@ -10,17 +9,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func createEnvironmentVariables(esService *corev1.Service) []corev1.EnvVar {
+func createEnvironmentVariables(esSpec *utils.ElasticSearchSpec) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "ELASTICSEARCH_URL",
-			Value: "http://" + esService.Spec.ClusterIP + ":" + strconv.FormatInt(int64(esService.Spec.Ports[0].Port), 10),
+			Value: "http://" + esSpec.Host + ":" + esSpec.Port,
 		},
 	}
 }
 
 // CreateKibanaDeployment - creates Kibana deployment
-func CreateKibanaDeployment(cr *loggingv1alpha1.LogManagement, esService *corev1.Service) *extensionv1.Deployment {
+func CreateKibanaDeployment(cr *loggingv1alpha1.LogManagement, esSpec *utils.ElasticSearchSpec) *extensionv1.Deployment {
 	label := map[string]string{
 		"app": "kibana",
 	}
@@ -56,7 +55,7 @@ func CreateKibanaDeployment(cr *loggingv1alpha1.LogManagement, esService *corev1
 									ContainerPort: 5601,
 								},
 							},
-							Env: createEnvironmentVariables(esService),
+							Env: createEnvironmentVariables(esSpec),
 						},
 					},
 				},

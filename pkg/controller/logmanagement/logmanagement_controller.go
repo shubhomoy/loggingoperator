@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/log_management/logging-operator/cmd/manager/tools"
+	"github.com/log_management/logging-operator/cmd/manager/utils"
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
 	extensionv1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -114,7 +116,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	/* Accounts, Roles and Binding Setup
 	// ------------------------------------
 	*/
-
+	esSpec := utils.ElasticSearchSpec{}
 	tools := tools.GetTools(instance)
 
 	svcAccount, role, binding := tools.SetupAccountsAndBindings()
@@ -197,33 +199,41 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Creating ES
-	// reqLogger.Info("Checking ElasticSearch")
-	elasticsearch := tools.ElasticSearch.GetDeployment()
-	existingES := &extensionv1.Deployment{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticsearch.Name, Namespace: elasticsearch.Namespace}, existingES)
-	// reqLogger.Info("Checking ElasticSearch - DONE")
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating Elasticsearch")
-		CreateK8sObject(instance, elasticsearch, r)
-		return reconcile.Result{Requeue: true}, nil
-	}
+	if instance.Spec.ElasticSearch.Required {
+		// Creating ES
+		// reqLogger.Info("Checking ElasticSearch")
+		elasticsearch := tools.ElasticSearch.GetDeployment()
+		existingES := &extensionv1.Deployment{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticsearch.Name, Namespace: elasticsearch.Namespace}, existingES)
+		// reqLogger.Info("Checking ElasticSearch - DONE")
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating Elasticsearch")
+			CreateK8sObject(instance, elasticsearch, r)
+			return reconcile.Result{Requeue: true}, nil
+		}
 
-	// Creating ES service
-	// reqLogger.Info("Checking ElasticSearch Service")
-	elasticSearchService := tools.ElasticSearch.GetService()
-	existingElasticSearchService := &corev1.Service{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticSearchService.Name, Namespace: elasticSearchService.Namespace}, existingElasticSearchService)
-	// reqLogger.Info("Checking ElasticSearch Service - DONE")
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating ES Service")
-		CreateK8sObject(instance, elasticSearchService, r)
-		return reconcile.Result{Requeue: true}, nil
+		// Creating ES service
+		// reqLogger.Info("Checking ElasticSearch Service")
+		elasticSearchService := tools.ElasticSearch.GetService()
+		existingElasticSearchService := &corev1.Service{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticSearchService.Name, Namespace: elasticSearchService.Namespace}, existingElasticSearchService)
+		// reqLogger.Info("Checking ElasticSearch Service - DONE")
+		if err != nil && errors.IsNotFound(err) {
+			reqLogger.Info("Creating ES Service")
+			CreateK8sObject(instance, elasticSearchService, r)
+			return reconcile.Result{Requeue: true}, nil
+		}
+
+		esSpec.Host = elasticSearchService.Spec.ClusterIP
+		esSpec.Port = strconv.FormatInt(int64(elasticSearchService.Spec.Ports[0].Port), 10)
+	} else {
+		esSpec.Host = instance.Spec.ElasticSearch.Host
+		esSpec.Port = instance.Spec.ElasticSearch.Port
 	}
 
 	// Creating Kibana deployment
 	// reqLogger.Info("Checking Kibana")
-	kibana := tools.Kibana.GetDeployment(existingElasticSearchService)
+	kibana := tools.Kibana.GetDeployment(&esSpec)
 	existingKibana := &extensionv1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kibana.Name, Namespace: kibana.Namespace}, existingKibana)
 	// reqLogger.Info("Checking Kibana - DONE")
@@ -259,7 +269,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 
 	// Creating FluentD DS
 	// reqLogger.Info("Checking FluentD DS")
-	fluentDDaemonSet := tools.FluentD.GetDaemonSet(existingElasticSearchService)
+	fluentDDaemonSet := tools.FluentD.GetDaemonSet(&esSpec)
 	existingFluentD := &extensionv1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDDaemonSet.Name, Namespace: fluentDDaemonSet.Namespace}, existingFluentD)
 	// reqLogger.Info("Checking FluentD DS - DONE")
