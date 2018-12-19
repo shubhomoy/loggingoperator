@@ -222,10 +222,10 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 			reqLogger.Info("Creating ES Service")
 			CreateK8sObject(instance, elasticSearchService, r)
 			return reconcile.Result{Requeue: true}, nil
+		} else {
+			esSpec.Host = existingElasticSearchService.Spec.ClusterIP
+			esSpec.Port = strconv.FormatInt(int64(existingElasticSearchService.Spec.Ports[0].Port), 10)
 		}
-
-		esSpec.Host = elasticSearchService.Spec.ClusterIP
-		esSpec.Port = strconv.FormatInt(int64(elasticSearchService.Spec.Ports[0].Port), 10)
 	} else {
 		esSpec.Host = instance.Spec.ElasticSearch.Host
 		esSpec.Port = instance.Spec.ElasticSearch.Port
@@ -304,7 +304,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info("FluentD Config Changed. Updating...")
 		existingFluentDConfigMap.Data = fluentDConfigMap.Data
 		err = r.client.Update(context.TODO(), existingFluentDConfigMap)
-		reqLogger.Info("FluentD Config Changed. Updating...")
+		reqLogger.Info("FluentD Config updated")
 		if err != nil {
 			reqLogger.Error(err, "Failed")
 		} else {

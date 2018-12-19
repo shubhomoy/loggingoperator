@@ -75,14 +75,13 @@ spec:
   namespace: logging
   es-kib-version: "6.4.2"
   watch:
-    - namespace: sit
+    - namespace: default
       parsers:
         - name: apache
         - name: apache_error
       outputs:
         - type: elasticsearch
           index-pattern: sit
-        - type: stdout
   parsers:
     - name: apache
       regex: '^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<log_time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>.*)")?$'
