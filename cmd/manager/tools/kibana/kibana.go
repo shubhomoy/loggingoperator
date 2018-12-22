@@ -32,7 +32,7 @@ func CreateKibanaDeployment(cr *loggingv1alpha1.LogManagement, esSpec *utils.Ela
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kibana",
 			Labels:    label,
-			Namespace: cr.Spec.LogManagementNamespace,
+			Namespace: cr.ObjectMeta.Namespace,
 		},
 
 		Spec: extensionv1.DeploymentSpec{
@@ -74,7 +74,7 @@ func CreateKibanaService(cr *loggingv1alpha1.LogManagement) *corev1.Service {
 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kibana",
-			Namespace: cr.Spec.LogManagementNamespace,
+			Namespace: cr.ObjectMeta.Namespace,
 		},
 
 		Spec: corev1.ServiceSpec{

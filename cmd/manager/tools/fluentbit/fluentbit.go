@@ -97,7 +97,7 @@ func CreateDaemonSet(cr *loggingv1alpha1.LogManagement, serviceAccount *corev1.S
 	return &extensionv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "fluent-bit",
-			Namespace: cr.Spec.LogManagementNamespace,
+			Namespace: cr.ObjectMeta.Namespace,
 			Labels:    labels},
 		Spec: extensionv1.DaemonSetSpec{
 			Template: corev1.PodTemplateSpec{
@@ -170,7 +170,7 @@ func CreateConfigMap(cr *loggingv1alpha1.LogManagement) *corev1.ConfigMap {
 			Labels: map[string]string{
 				"k8s-app": "fluent-bit",
 			},
-			Namespace: cr.Spec.LogManagementNamespace,
+			Namespace: cr.ObjectMeta.Namespace,
 		},
 
 		Data: map[string]string{

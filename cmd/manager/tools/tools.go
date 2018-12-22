@@ -55,14 +55,14 @@ func (t *Tools) init() {
 }
 
 // SetupAccountsAndBindings creates Service Account, Cluster Role and Cluster Binding for FluentBit DaemonSet
-func (t *Tools) SetupAccountsAndBindings() (*corev1.ServiceAccount, *rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {
-	// namespace := t.createNamespace()
+func (t *Tools) SetupAccountsAndBindings() (*corev1.Namespace, *corev1.ServiceAccount, *rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {
+	namespace := t.createNamespace()
 	svcAccount := t.createServiceAccount()
 	clusterRole := t.createClusterRole()
 	roleBinding := t.createRoleBinding()
 
 	t.FluentBit.serviceAccount = svcAccount
-	return svcAccount, clusterRole, roleBinding
+	return namespace, svcAccount, clusterRole, roleBinding
 }
 
 // FluentBit structure
@@ -149,7 +149,7 @@ func (t Tools) createServiceAccount() *corev1.ServiceAccount {
 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "fluent-bit",
-			Namespace: t.cr.Spec.LogManagementNamespace,
+			Namespace: t.cr.ObjectMeta.Namespace,
 		},
 	}
 }
