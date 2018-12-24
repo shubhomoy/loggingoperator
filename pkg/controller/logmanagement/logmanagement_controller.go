@@ -84,15 +84,10 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// reqLogger.Info("Log Management instance not found!")
-			return reconcile.Result{Requeue: true}, nil
+			reqLogger.Info("Log Management instance not found!")
+			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, nil
-	}
-
-	if request.Namespace != instance.Spec.LogManagementNamespace {
-		// reqLogger.Info("Namespace mismatch")
-		return reconcile.Result{Requeue: true}, nil
 	}
 
 	if len(instance.Spec.Watch) > 0 {
@@ -102,84 +97,63 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 	esSpec := utils.ElasticSearchSpec{}
 	tools := tools.GetTools(instance)
 
-	namespace, svcAccount, role, binding := tools.SetupAccountsAndBindings()
-
-	existingNamespace := &corev1.Namespace{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: namespace.Name}, existingNamespace)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating Namespace")
-		createK8sObject(instance, namespace, r)
-		return reconcile.Result{Requeue: true}, nil
-	}
+	_, svcAccount, role, binding := tools.SetupAccountsAndBindings()
 
 	existingSvcAccount := &corev1.ServiceAccount{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: svcAccount.Name, Namespace: svcAccount.Namespace}, existingSvcAccount)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Service Account")
-		createK8sObject(instance, svcAccount, r)
-		return reconcile.Result{Requeue: true}, nil
+		return createK8sObject(instance, svcAccount, r)
 	}
 
 	existingRole := &rbacv1.ClusterRole{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: role.Name}, existingRole)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Cluster Role")
-		createK8sObject(instance, role, r)
-		return reconcile.Result{Requeue: true}, nil
+		return createK8sObject(instance, role, r)
 	}
 
 	existingBinding := &rbacv1.ClusterRoleBinding{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: binding.Name}, existingBinding)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Role Binding")
-		createK8sObject(instance, binding, r)
-		return reconcile.Result{Requeue: true}, nil
+		return createK8sObject(instance, binding, r)
 	}
 
-	fluentdService := tools.FluentD.GetService()
-	existingfluentdService := &corev1.Service{}
+	existingfluentdService, fluentdService := tools.FluentD.GetService()
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentdService.Name, Namespace: fluentdService.Namespace}, existingfluentdService)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD Service")
-		createK8sObject(instance, fluentdService, r)
-		return reconcile.Result{Requeue: true}, nil
+		return createK8sObject(instance, fluentdService, r)
 	}
 
-	configMap := tools.FluentBit.GetConfigMap()
-	existingFluentBitConfigMap := &corev1.ConfigMap{}
+	existingFluentBitConfigMap, configMap := tools.FluentBit.GetConfigMap()
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: configMap.Name, Namespace: configMap.Namespace}, existingFluentBitConfigMap)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentBit Config Map")
-		createK8sObject(instance, configMap, r)
-		return reconcile.Result{Requeue: true}, nil
+		return createK8sObject(instance, configMap, r)
 	}
 
-	fluentBitDaemonSet := tools.FluentBit.GetDaemonSet()
-	existingFluentBitDaemonSet := &extensionv1.DaemonSet{}
+	existingFluentBitDaemonSet, fluentBitDaemonSet := tools.FluentBit.GetDaemonSet()
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentBitDaemonSet.Name, Namespace: fluentBitDaemonSet.Namespace}, existingFluentBitDaemonSet)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentBit DaemonSet")
-		createK8sObject(instance, fluentBitDaemonSet, r)
-		return reconcile.Result{Requeue: true}, nil
+		return createK8sObject(instance, fluentBitDaemonSet, r)
 	}
 
 	if instance.Spec.ElasticSearch.Required {
-		elasticsearch := tools.ElasticSearch.GetDeployment()
-		existingES := &extensionv1.Deployment{}
+		existingES, elasticsearch := tools.ElasticSearch.GetDeployment()
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticsearch.Name, Namespace: elasticsearch.Namespace}, existingES)
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Info("Creating Elasticsearch")
-			createK8sObject(instance, elasticsearch, r)
-			return reconcile.Result{Requeue: true}, nil
+			return createK8sObject(instance, elasticsearch, r)
 		}
 
-		elasticSearchService := tools.ElasticSearch.GetService()
-		existingElasticSearchService := &corev1.Service{}
+		existingElasticSearchService, elasticSearchService := tools.ElasticSearch.GetService()
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticSearchService.Name, Namespace: elasticSearchService.Namespace}, existingElasticSearchService)
 		if err != nil && errors.IsNotFound(err) {
 			reqLogger.Info("Creating ES Service")
-			createK8sObject(instance, elasticSearchService, r)
-			return reconcile.Result{Requeue: true}, nil
+			return createK8sObject(instance, elasticSearchService, r)
 		} else {
 			esSpec.Host = existingElasticSearchService.Spec.ClusterIP
 			esSpec.Port = strconv.FormatInt(int64(existingElasticSearchService.Spec.Ports[0].Port), 10)
@@ -189,40 +163,32 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		esSpec.Port = instance.Spec.ElasticSearch.Port
 	}
 
-	kibana := tools.Kibana.GetDeployment(&esSpec)
-	existingKibana := &extensionv1.Deployment{}
+	existingKibana, kibana := tools.Kibana.GetDeployment(&esSpec)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kibana.Name, Namespace: kibana.Namespace}, existingKibana)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Kibana Deployment")
-		createK8sObject(instance, kibana, r)
-		return reconcile.Result{Requeue: true}, nil
+		return createK8sObject(instance, kibana, r)
 	}
 
-	kibanaService := tools.Kibana.GetService()
-	existingKibanaService := &corev1.Service{}
+	existingKibanaService, kibanaService := tools.Kibana.GetService()
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kibanaService.Name, Namespace: kibanaService.Namespace}, existingKibanaService)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating Kibana Service")
-		createK8sObject(instance, kibanaService, r)
-		return reconcile.Result{Requeue: true}, nil
+		return createK8sObject(instance, kibanaService, r)
 	}
 
-	fluentDConfigMap := tools.FluentD.GetConfigMap()
-	existingFluentDConfigMap := &corev1.ConfigMap{}
+	existingFluentDConfigMap, fluentDConfigMap := tools.FluentD.GetConfigMap()
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDConfigMap.Name, Namespace: fluentDConfigMap.Namespace}, existingFluentDConfigMap)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD Config Map")
-		createK8sObject(instance, fluentDConfigMap, r)
-		return reconcile.Result{Requeue: true}, nil
+		return createK8sObject(instance, fluentDConfigMap, r)
 	}
 
-	fluentDDaemonSet := tools.FluentD.GetDaemonSet(&esSpec)
-	existingFluentD := &extensionv1.Deployment{}
+	existingFluentD, fluentDDaemonSet := tools.FluentD.GetDaemonSet(&esSpec)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDDaemonSet.Name, Namespace: fluentDDaemonSet.Namespace}, existingFluentD)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD DaemonSet")
-		createK8sObject(instance, fluentDDaemonSet, r)
-		return reconcile.Result{Requeue: true}, nil
+		return createK8sObject(instance, fluentDDaemonSet, r)
 	}
 
 	/*
@@ -259,10 +225,10 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		}
 	}
 
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{}, nil
 }
 
-func createK8sObject(instance *loggingv1alpha1.LogManagement, obj v1.Object, r *ReconcileLogManagement) {
+func createK8sObject(instance *loggingv1alpha1.LogManagement, obj v1.Object, r *ReconcileLogManagement) (reconcile.Result, error) {
 	var err error
 	err = controllerutil.SetControllerReference(instance, obj, r.scheme)
 
@@ -286,7 +252,9 @@ func createK8sObject(instance *loggingv1alpha1.LogManagement, obj v1.Object, r *
 	}
 	if err != nil {
 		fmt.Println(err)
+		return reconcile.Result{}, err
 	}
+	return reconcile.Result{Requeue: true}, nil
 }
 
 func updateSpec(cr *loggingv1alpha1.LogManagement) {

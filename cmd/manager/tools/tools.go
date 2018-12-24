@@ -15,8 +15,9 @@ import (
 
 // Defaults declares some default values
 var Defaults = map[string]string{
-	"FLUENTBIT-LOG-FILE": "/var/log/fluentbit.log",
-	"NAMESPACE":          "logging",
+	"FLUENTBIT-LOG-FILE":        "/var/log/fluentbit.log",
+	"FLUENTBIT-SVC-ACOUNT-NAME": "fluent-bit",
+	"FLUENTBIT-ROLE-NAME":       "fluent-bit-read",
 }
 
 // Tools structure declarations
@@ -31,10 +32,6 @@ type Tools struct {
 func (t *Tools) init() {
 	if t.cr.Spec.FluentBitLogFile == "" {
 		t.cr.Spec.FluentBitLogFile = Defaults["FLUENTBIT-LOG-FILE"]
-	}
-
-	if t.cr.Spec.LogManagementNamespace == "" {
-		t.cr.Spec.LogManagementNamespace = Defaults["NAMESPACE"]
 	}
 
 	t.FluentBit = FluentBit{
@@ -59,7 +56,7 @@ func (t *Tools) SetupAccountsAndBindings() (*corev1.Namespace, *corev1.ServiceAc
 	namespace := t.createNamespace()
 	svcAccount := t.createServiceAccount()
 	clusterRole := t.createClusterRole()
-	roleBinding := t.createRoleBinding()
+	roleBinding := t.createRoleBinding(clusterRole, svcAccount)
 
 	t.FluentBit.serviceAccount = svcAccount
 	return namespace, svcAccount, clusterRole, roleBinding
@@ -72,13 +69,13 @@ type FluentBit struct {
 }
 
 // GetConfigMap returns FluentBit ConfigMap
-func (f FluentBit) GetConfigMap() *corev1.ConfigMap {
-	return fluentbit.CreateConfigMap(f.cr)
+func (f FluentBit) GetConfigMap() (*corev1.ConfigMap, *corev1.ConfigMap) {
+	return &corev1.ConfigMap{}, fluentbit.CreateConfigMap(f.cr)
 }
 
 // GetDaemonSet returns FluentBit DaemonSet
-func (f FluentBit) GetDaemonSet() *extensionv1.DaemonSet {
-	return fluentbit.CreateDaemonSet(f.cr, f.serviceAccount)
+func (f FluentBit) GetDaemonSet() (*extensionv1.DaemonSet, *extensionv1.DaemonSet) {
+	return &extensionv1.DaemonSet{}, fluentbit.CreateDaemonSet(f.cr, f.serviceAccount)
 }
 
 // -------------------------------
@@ -89,18 +86,18 @@ type FluentD struct {
 }
 
 // GetConfigMap returns FluentD configmap
-func (f FluentD) GetConfigMap() *corev1.ConfigMap {
-	return fluentd.CreateConfigMap(f.cr)
+func (f FluentD) GetConfigMap() (*corev1.ConfigMap, *corev1.ConfigMap) {
+	return &corev1.ConfigMap{}, fluentd.CreateConfigMap(f.cr)
 }
 
 // GetService returns FluentD service
-func (f FluentD) GetService() *corev1.Service {
-	return fluentd.CreateFluentDService(f.cr)
+func (f FluentD) GetService() (*corev1.Service, *corev1.Service) {
+	return &corev1.Service{}, fluentd.CreateFluentDService(f.cr)
 }
 
 // GetDaemonSet returns FluentD DaemonSet
-func (f FluentD) GetDaemonSet(esSpec *utils.ElasticSearchSpec) *extensionv1.Deployment {
-	return fluentd.CreateDaemonSet(f.cr, esSpec)
+func (f FluentD) GetDaemonSet(esSpec *utils.ElasticSearchSpec) (*extensionv1.Deployment, *extensionv1.Deployment) {
+	return &extensionv1.Deployment{}, fluentd.CreateDaemonSet(f.cr, esSpec)
 }
 
 // -------------------------------
@@ -111,13 +108,13 @@ type ElasticSearch struct {
 }
 
 // GetDeployment returns ES deployment
-func (e ElasticSearch) GetDeployment() *extensionv1.Deployment {
-	return elasticsearch.CreateElasticsearchDeployment(e.cr)
+func (e ElasticSearch) GetDeployment() (*extensionv1.Deployment, *extensionv1.Deployment) {
+	return &extensionv1.Deployment{}, elasticsearch.CreateElasticsearchDeployment(e.cr)
 }
 
 // GetService returns ES service
-func (e ElasticSearch) GetService() *corev1.Service {
-	return elasticsearch.CreateElasticsearchService(e.cr)
+func (e ElasticSearch) GetService() (*corev1.Service, *corev1.Service) {
+	return &corev1.Service{}, elasticsearch.CreateElasticsearchService(e.cr)
 }
 
 // -------------------------------
@@ -128,13 +125,13 @@ type Kibana struct {
 }
 
 // GetDeployment returns Kibana Deployment
-func (k *Kibana) GetDeployment(esSpec *utils.ElasticSearchSpec) *extensionv1.Deployment {
-	return kibana.CreateKibanaDeployment(k.cr, esSpec)
+func (k *Kibana) GetDeployment(esSpec *utils.ElasticSearchSpec) (*extensionv1.Deployment, *extensionv1.Deployment) {
+	return &extensionv1.Deployment{}, kibana.CreateKibanaDeployment(k.cr, esSpec)
 }
 
 // GetService returns Kibana Service
-func (k *Kibana) GetService() *corev1.Service {
-	return kibana.CreateKibanaService(k.cr)
+func (k *Kibana) GetService() (*corev1.Service, *corev1.Service) {
+	return &corev1.Service{}, kibana.CreateKibanaService(k.cr)
 }
 
 /* -------------------------------
@@ -148,7 +145,7 @@ func (t Tools) createServiceAccount() *corev1.ServiceAccount {
 		},
 
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "fluent-bit",
+			Name:      Defaults["FLUENTBIT-SVC-ACOUNT-NAME"],
 			Namespace: t.cr.ObjectMeta.Namespace,
 		},
 	}
@@ -162,7 +159,7 @@ func (t Tools) createClusterRole() *rbacv1.ClusterRole {
 		},
 
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "fluent-bit-read",
+			Name: Defaults["FLUENTBIT-ROLE-NAME"],
 		},
 
 		Rules: []rbacv1.PolicyRule{{
@@ -173,7 +170,7 @@ func (t Tools) createClusterRole() *rbacv1.ClusterRole {
 	}
 }
 
-func (t Tools) createRoleBinding() *rbacv1.ClusterRoleBinding {
+func (t Tools) createRoleBinding(clusterRole *rbacv1.ClusterRole, svcAccount *corev1.ServiceAccount) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterRoleBinding",
@@ -181,19 +178,19 @@ func (t Tools) createRoleBinding() *rbacv1.ClusterRoleBinding {
 		},
 
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "fluent-bit-read",
+			Name: Defaults["FLUENTBIT-ROLE-NAME"],
 		},
 
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     "fluent-bit-read",
+			Kind:     clusterRole.TypeMeta.Kind,
+			Name:     clusterRole.ObjectMeta.Name,
 		},
 
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
-			Name:      "fluent-bit",
-			Namespace: t.cr.Spec.LogManagementNamespace,
+			Name:      svcAccount.ObjectMeta.Name,
+			Namespace: t.cr.ObjectMeta.Namespace,
 		}},
 	}
 }
@@ -205,7 +202,7 @@ func (t Tools) createNamespace() *corev1.Namespace {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: t.cr.Spec.LogManagementNamespace,
+			Name: t.cr.ObjectMeta.Namespace,
 		},
 	}
 }
