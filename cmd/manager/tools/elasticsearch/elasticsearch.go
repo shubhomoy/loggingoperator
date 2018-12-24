@@ -2,31 +2,26 @@ package elasticsearch
 
 import (
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	core1 "k8s.io/api/core/v1"
-	extensionv1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // CreateElasticsearchDeployment creates ES deployment
-func CreateElasticsearchDeployment(cr *loggingv1alpha1.LogManagement) *extensionv1.Deployment {
+func CreateElasticsearchDeployment(cr *loggingv1alpha1.LogManagement) *appsv1.Deployment {
 	label := map[string]string{
 		"run": "elasticsearch",
 	}
 
-	return &extensionv1.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Deployment",
-			APIVersion: "extensions/v1beta1",
-		},
-
+	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "elasticsearch",
 			Namespace: cr.ObjectMeta.Namespace,
 			Labels:    label,
 		},
 
-		Spec: extensionv1.DeploymentSpec{
+		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: label,
 			},

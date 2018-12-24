@@ -7,8 +7,8 @@ import (
 	"github.com/log_management/logging-operator/cmd/manager/utils"
 
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	extensionv1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -75,16 +75,16 @@ func CreateConfigMap(cr *loggingv1alpha1.LogManagement) *corev1.ConfigMap {
 }
 
 // CreateDaemonSet creates daemonset for FluentBit
-func CreateDaemonSet(cr *loggingv1alpha1.LogManagement, esSpec *utils.ElasticSearchSpec) *extensionv1.Deployment {
+func CreateDaemonSet(cr *loggingv1alpha1.LogManagement, esSpec *utils.ElasticSearchSpec) *appsv1.Deployment {
 	labels := map[string]string{
 		"run": "fluentd",
 	}
-	return &extensionv1.Deployment{
+	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "fluentd",
 			Namespace: cr.ObjectMeta.Namespace,
 			Labels:    labels},
-		Spec: extensionv1.DeploymentSpec{
+		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},

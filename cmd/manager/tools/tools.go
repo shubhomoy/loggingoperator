@@ -7,8 +7,8 @@ import (
 	"github.com/log_management/logging-operator/cmd/manager/tools/kibana"
 	"github.com/log_management/logging-operator/cmd/manager/utils"
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	extensionv1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -74,8 +74,8 @@ func (f FluentBit) GetConfigMap() (*corev1.ConfigMap, *corev1.ConfigMap) {
 }
 
 // GetDaemonSet returns FluentBit DaemonSet
-func (f FluentBit) GetDaemonSet() (*extensionv1.DaemonSet, *extensionv1.DaemonSet) {
-	return &extensionv1.DaemonSet{}, fluentbit.CreateDaemonSet(f.cr, f.serviceAccount)
+func (f FluentBit) GetDaemonSet() (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+	return &appsv1.DaemonSet{}, fluentbit.CreateDaemonSet(f.cr, f.serviceAccount)
 }
 
 // -------------------------------
@@ -96,8 +96,8 @@ func (f FluentD) GetService() (*corev1.Service, *corev1.Service) {
 }
 
 // GetDaemonSet returns FluentD DaemonSet
-func (f FluentD) GetDaemonSet(esSpec *utils.ElasticSearchSpec) (*extensionv1.Deployment, *extensionv1.Deployment) {
-	return &extensionv1.Deployment{}, fluentd.CreateDaemonSet(f.cr, esSpec)
+func (f FluentD) GetDaemonSet(esSpec *utils.ElasticSearchSpec) (*appsv1.Deployment, *appsv1.Deployment) {
+	return &appsv1.Deployment{}, fluentd.CreateDaemonSet(f.cr, esSpec)
 }
 
 // -------------------------------
@@ -108,8 +108,8 @@ type ElasticSearch struct {
 }
 
 // GetDeployment returns ES deployment
-func (e ElasticSearch) GetDeployment() (*extensionv1.Deployment, *extensionv1.Deployment) {
-	return &extensionv1.Deployment{}, elasticsearch.CreateElasticsearchDeployment(e.cr)
+func (e ElasticSearch) GetDeployment() (*appsv1.Deployment, *appsv1.Deployment) {
+	return &appsv1.Deployment{}, elasticsearch.CreateElasticsearchDeployment(e.cr)
 }
 
 // GetService returns ES service
@@ -125,8 +125,8 @@ type Kibana struct {
 }
 
 // GetDeployment returns Kibana Deployment
-func (k *Kibana) GetDeployment(esSpec *utils.ElasticSearchSpec) (*extensionv1.Deployment, *extensionv1.Deployment) {
-	return &extensionv1.Deployment{}, kibana.CreateKibanaDeployment(k.cr, esSpec)
+func (k *Kibana) GetDeployment(esSpec *utils.ElasticSearchSpec) (*appsv1.Deployment, *appsv1.Deployment) {
+	return &appsv1.Deployment{}, kibana.CreateKibanaDeployment(k.cr, esSpec)
 }
 
 // GetService returns Kibana Service

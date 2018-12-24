@@ -5,8 +5,8 @@ import (
 	"text/template"
 
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	extensionv1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -89,17 +89,20 @@ func generateVolumes() []corev1.Volume {
 }
 
 // CreateDaemonSet generates the FluentBit DS
-func CreateDaemonSet(cr *loggingv1alpha1.LogManagement, serviceAccount *corev1.ServiceAccount) *extensionv1.DaemonSet {
+func CreateDaemonSet(cr *loggingv1alpha1.LogManagement, serviceAccount *corev1.ServiceAccount) *appsv1.DaemonSet {
 	labels := map[string]string{
-		"k8s-app":                       "fluent-bit-logging",
-		"kubernetes.io/cluster-service": "true",
+		"k8s-app": "fluent-bit-logging",
 	}
-	return &extensionv1.DaemonSet{
+	return &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "fluent-bit",
 			Namespace: cr.ObjectMeta.Namespace,
-			Labels:    labels},
-		Spec: extensionv1.DaemonSetSpec{
+			Labels:    labels,
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels},

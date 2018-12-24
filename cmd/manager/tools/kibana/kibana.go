@@ -3,8 +3,8 @@ package kibana
 import (
 	"github.com/log_management/logging-operator/cmd/manager/utils"
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	extensionv1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -19,23 +19,18 @@ func createEnvironmentVariables(esSpec *utils.ElasticSearchSpec) []corev1.EnvVar
 }
 
 // CreateKibanaDeployment - creates Kibana deployment
-func CreateKibanaDeployment(cr *loggingv1alpha1.LogManagement, esSpec *utils.ElasticSearchSpec) *extensionv1.Deployment {
+func CreateKibanaDeployment(cr *loggingv1alpha1.LogManagement, esSpec *utils.ElasticSearchSpec) *appsv1.Deployment {
 	label := map[string]string{
 		"app": "kibana",
 	}
-	return &extensionv1.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Deployment",
-			APIVersion: "extensions/v1beta1",
-		},
-
+	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kibana",
 			Labels:    label,
 			Namespace: cr.ObjectMeta.Namespace,
 		},
 
-		Spec: extensionv1.DeploymentSpec{
+		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: label,
 			},
