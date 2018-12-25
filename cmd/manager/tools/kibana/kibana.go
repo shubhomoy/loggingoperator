@@ -13,7 +13,7 @@ func createEnvironmentVariables(esSpec *utils.ElasticSearchSpec) []corev1.EnvVar
 	return []corev1.EnvVar{
 		{
 			Name:  "ELASTICSEARCH_URL",
-			Value: "http://" + esSpec.Host + ":" + esSpec.Port,
+			Value: esSpec.HTTPString + esSpec.CurrentHost + ":" + esSpec.CurrentPort,
 		},
 	}
 }

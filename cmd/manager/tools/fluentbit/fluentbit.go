@@ -2,6 +2,7 @@ package fluentbit
 
 import (
 	"bytes"
+	"strconv"
 	"text/template"
 
 	loggingv1alpha1 "github.com/log_management/logging-operator/pkg/apis/logging/v1alpha1"
@@ -143,22 +144,30 @@ func CreateConfigMap(cr *loggingv1alpha1.LogManagement) *corev1.ConfigMap {
 		FluentBitLogFile: cr.Spec.FluentBitLogFile,
 		K8sMetadata:      cr.Spec.K8sMetadata,
 	}
-	for _, i := range cr.Spec.Inputs {
+	for index, i := range cr.Spec.Watch {
 		var parsers []InputParser
+		var deployments []Deployment
 		for _, p := range i.Parsers {
 			parsers = append(parsers, InputParser{Name: p.Name})
 		}
+		if len(i.Deployments) == 0 {
+			deployments = append(deployments, Deployment{Name: ""})
+		}
+		for _, d := range i.Deployments {
+			deployments = append(deployments, Deployment{Name: d.Name})
+		}
+		cr.Spec.Watch[index].Tag = "tag_" + strconv.Itoa(index)
 		templateInput.Inputs = append(templateInput.Inputs, Input{
-			DeploymentName: i.DeploymentName,
-			Tag:            i.Tag,
-			Parsers:        parsers,
+			Namespace:   i.Namespace,
+			Deployments: deployments,
+			Tag:         cr.Spec.Watch[index].Tag,
+			Parsers:     parsers,
 		})
 	}
 
 	for _, i := range cr.Spec.Parsers {
 		templateInput.Parsers = append(templateInput.Parsers, Parser{Name: i.Name, Regex: i.Regex})
 	}
-
 	configMap, _ := generateConfig(templateInput, configmapTemplate)
 	parserMap, _ := generateConfig(templateInput, parsersTemplate)
 
@@ -193,9 +202,10 @@ type TemplateInput struct {
 
 // Input defines the structure of input placeholder
 type Input struct {
-	DeploymentName string
-	Tag            string
-	Parsers        []InputParser
+	Namespace   string
+	Deployments []Deployment
+	Tag         string
+	Parsers     []InputParser
 }
 
 // Parser defines structure of Parsers
@@ -206,6 +216,11 @@ type Parser struct {
 
 // InputParser defines input parser structure
 type InputParser struct {
+	Name string
+}
+
+// Deployment spec
+type Deployment struct {
 	Name string
 }
 

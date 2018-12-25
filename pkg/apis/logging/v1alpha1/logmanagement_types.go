@@ -13,7 +13,6 @@ type LogManagementSpec struct {
 	K8sMetadata      bool          `json:"include-k8s-metadata"`
 	ESKibanaVersion  string        `json:"es-kib-version"`
 	Watch            []Watch       `json:"watch"`
-	Inputs           []Input       `json:"inputs"`
 	Parsers          []Parser      `json:"parsers"`
 	ElasticSearch    ElasticSearch `json:"elasticsearch-spec"`
 	KibanaRequired   bool          `json:"kibana"`
@@ -46,14 +45,6 @@ type LogManagementList struct {
 	Items           []LogManagement `json:"items"`
 }
 
-// Input adds input spec
-type Input struct {
-	DeploymentName string        `json:"deployment-name"`
-	Tag            string        `json:"tag"`
-	Parsers        []InputParser `json:"parsers"`
-	Outputs        []Output      `json:"outputs"`
-}
-
 // Parser adds
 type Parser struct {
 	Name  string `json:"name"`
@@ -73,16 +64,25 @@ type Output struct {
 
 // Watch spec
 type Watch struct {
-	Namespace string        `json:"namespace"`
-	Parsers   []InputParser `json:"parsers"`
-	Outputs   []Output      `json:"outputs"`
+	Namespace   string        `json:"namespace"`
+	Deployments []Deployment  `json:"deployments"`
+	Parsers     []InputParser `json:"parsers"`
+	Outputs     []Output      `json:"outputs"`
+	Tag         string
 }
 
 // ElasticSearch spec
 type ElasticSearch struct {
-	Required bool   `json:"required"`
-	Host     string `json:"host"`
-	Port     string `json:"port"`
+	Required   bool   `json:"required"`
+	Host       string `json:"host"`
+	Port       string `json:"port"`
+	HTTPS      bool   `json:"https"`
+	HTTPString string
+}
+
+// Deployment spec
+type Deployment struct {
+	Name string `json:"name"`
 }
 
 func init() {

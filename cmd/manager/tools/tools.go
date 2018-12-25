@@ -69,12 +69,12 @@ type FluentBit struct {
 }
 
 // GetConfigMap returns FluentBit ConfigMap
-func (f FluentBit) GetConfigMap() (*corev1.ConfigMap, *corev1.ConfigMap) {
+func (f *FluentBit) GetConfigMap() (*corev1.ConfigMap, *corev1.ConfigMap) {
 	return &corev1.ConfigMap{}, fluentbit.CreateConfigMap(f.cr)
 }
 
 // GetDaemonSet returns FluentBit DaemonSet
-func (f FluentBit) GetDaemonSet() (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+func (f *FluentBit) GetDaemonSet() (*appsv1.DaemonSet, *appsv1.DaemonSet) {
 	return &appsv1.DaemonSet{}, fluentbit.CreateDaemonSet(f.cr, f.serviceAccount)
 }
 
@@ -86,7 +86,7 @@ type FluentD struct {
 }
 
 // GetConfigMap returns FluentD configmap
-func (f FluentD) GetConfigMap() (*corev1.ConfigMap, *corev1.ConfigMap) {
+func (f *FluentD) GetConfigMap() (*corev1.ConfigMap, *corev1.ConfigMap) {
 	return &corev1.ConfigMap{}, fluentd.CreateConfigMap(f.cr)
 }
 

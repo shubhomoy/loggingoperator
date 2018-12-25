@@ -12,17 +12,18 @@ var configmapTemplate = `
 	Parsers_File  parsers.conf
 
 
-{{- range .Inputs}}
+{{- range $in := .Inputs}}
+	{{- range $dep := $in.Deployments}}
 [INPUT]
 	Name              tail
-	Tag               {{ .Tag }}.*
-	Path              /var/log/containers/{{ .DeploymentName }}*
+	Tag               {{ $in.Tag }}.*
+	Path              /var/log/containers/{{ $dep.Name }}*_{{ $in.Namespace }}_*
 	Parser            json_parser
+	{{- end}}
 {{- end}}
 
 {{- range $in := .Inputs}}
 	{{- range $par := $in.Parsers}}
-
 [FILTER]
 	Name       parser
 	Match      {{ $in.Tag }}.*

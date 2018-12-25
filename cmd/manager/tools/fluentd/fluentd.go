@@ -47,12 +47,12 @@ func CreateConfigMap(cr *loggingv1alpha1.LogManagement) *corev1.ConfigMap {
 
 	templateInput := TemplateInput{}
 
-	for _, i := range cr.Spec.Inputs {
+	for _, i := range cr.Spec.Watch {
 		var outputs []Output
 		for _, o := range i.Outputs {
 			outputs = append(outputs, Output{Type: o.Type, IndexPattern: o.IndexPattern})
 		}
-		templateInput.Inputs = append(templateInput.Inputs, Input{DeploymentName: i.DeploymentName, Tag: i.Tag, Outputs: outputs})
+		templateInput.Inputs = append(templateInput.Inputs, Input{Tag: i.Tag, Outputs: outputs})
 	}
 
 	configMap := generateConfig(templateInput, configmapTemplate)
@@ -159,11 +159,11 @@ func generateEnvironmentVariables(esSpec *utils.ElasticSearchSpec) []corev1.EnvV
 		},
 		{
 			Name:  "ES_PORT",
-			Value: esSpec.Port,
+			Value: esSpec.CurrentPort,
 		},
 		{
 			Name:  "ES_HOST",
-			Value: esSpec.Host,
+			Value: esSpec.CurrentHost,
 		},
 	}
 }
@@ -175,9 +175,8 @@ type TemplateInput struct {
 
 // Input structure
 type Input struct {
-	DeploymentName string
-	Tag            string
-	Outputs        []Output
+	Tag     string
+	Outputs []Output
 }
 
 // Output spec

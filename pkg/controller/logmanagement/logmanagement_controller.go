@@ -2,8 +2,10 @@ package logmanagement
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strconv"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -62,11 +64,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		IsController: true,
 		OwnerType:    &loggingv1alpha1.LogManagement{},
 	})
+	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &loggingv1alpha1.LogManagement{},
+	})
 
 	return nil
 }
 
 var _ reconcile.Reconciler = &ReconcileLogManagement{}
+var esSpec = &utils.ElasticSearchSpec{}
 
 // ReconcileLogManagement reconciles a LogManagement object
 type ReconcileLogManagement struct {
@@ -90,11 +97,14 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, nil
 	}
 
-	if len(instance.Spec.Watch) > 0 {
-		updateSpec(instance)
+	validator := utils.Validator{}
+	validator.Validate(instance)
+
+	if !validator.Validated {
+		fmt.Println(validator.ErrorMessage)
+		return reconcile.Result{}, nil
 	}
 
-	esSpec := utils.ElasticSearchSpec{}
 	tools := tools.GetTools(instance)
 
 	_, svcAccount, role, binding := tools.SetupAccountsAndBindings()
@@ -106,7 +116,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		if err = createK8sObject(instance, svcAccount, r); err != nil {
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return requeAfter(1, nil)
 	}
 
 	existingRole := &rbacv1.ClusterRole{}
@@ -116,7 +126,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		if err = createK8sObject(instance, role, r); err != nil {
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return requeAfter(1, nil)
 	}
 
 	existingBinding := &rbacv1.ClusterRoleBinding{}
@@ -126,7 +136,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		if err = createK8sObject(instance, binding, r); err != nil {
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return requeAfter(1, nil)
 	}
 
 	existingfluentdService, fluentdService := tools.FluentD.GetService()
@@ -136,7 +146,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		if err = createK8sObject(instance, fluentdService, r); err != nil {
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return requeAfter(1, nil)
 	}
 
 	existingFluentBitConfigMap, configMap := tools.FluentBit.GetConfigMap()
@@ -146,7 +156,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		if err = createK8sObject(instance, configMap, r); err != nil {
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return requeAfter(1, nil)
 	}
 
 	existingFluentBitDaemonSet, fluentBitDaemonSet := tools.FluentBit.GetDaemonSet()
@@ -156,9 +166,10 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		if err = createK8sObject(instance, fluentBitDaemonSet, r); err != nil {
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: true}, nil
+		return requeAfter(5, nil)
 	}
 
+	esSpec.HTTPString = instance.Spec.ElasticSearch.HTTPString
 	if instance.Spec.ElasticSearch.Required {
 		existingES, elasticsearch := tools.ElasticSearch.GetDeployment()
 		err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticsearch.Name, Namespace: elasticsearch.Namespace}, existingES)
@@ -167,7 +178,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 			if err = createK8sObject(instance, elasticsearch, r); err != nil {
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return requeAfter(5, nil)
 		}
 
 		existingElasticSearchService, elasticSearchService := tools.ElasticSearch.GetService()
@@ -177,17 +188,44 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 			if err = createK8sObject(instance, elasticSearchService, r); err != nil {
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{Requeue: true}, nil
-		} else {
-			esSpec.Host = existingElasticSearchService.Spec.ClusterIP
-			esSpec.Port = strconv.FormatInt(int64(existingElasticSearchService.Spec.Ports[0].Port), 10)
+			return requeAfter(5, nil)
 		}
+		esSpec.CurrentHost = existingElasticSearchService.Spec.ClusterIP
+		esSpec.CurrentPort = strconv.FormatInt(int64(existingElasticSearchService.Spec.Ports[0].Port), 10)
+
 	} else {
-		esSpec.Host = instance.Spec.ElasticSearch.Host
-		esSpec.Port = instance.Spec.ElasticSearch.Port
+		esSpec.CurrentHost = instance.Spec.ElasticSearch.Host
+		esSpec.CurrentPort = instance.Spec.ElasticSearch.Port
+
+		existingES, elasticsearch := tools.ElasticSearch.GetDeployment()
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticsearch.Name, Namespace: elasticsearch.Namespace}, existingES)
+		if err == nil {
+			reqLogger.Info("Removing existing Elasticsearch")
+			if err = r.client.Delete(context.TODO(), existingES); err != nil {
+				return reconcile.Result{}, err
+			}
+			return requeAfter(5, nil)
+		}
+
+		existingElasticSearchService, elasticSearchService := tools.ElasticSearch.GetService()
+		err = r.client.Get(context.TODO(), types.NamespacedName{Name: elasticSearchService.Name, Namespace: elasticSearchService.Namespace}, existingElasticSearchService)
+		if err == nil {
+			reqLogger.Info("Removing existing Elasticsearch service")
+			if err = r.client.Delete(context.TODO(), existingElasticSearchService); err != nil {
+				return reconcile.Result{}, err
+			}
+			return requeAfter(5, nil)
+		}
 	}
 
-	existingKibana, kibana := tools.Kibana.GetDeployment(&esSpec)
+	if esSpec.PrevHost == "" {
+		esSpec.PrevHost = esSpec.CurrentHost
+	}
+	if esSpec.PrevPort == "" {
+		esSpec.PrevPort = esSpec.CurrentPort
+	}
+
+	existingKibana, kibana := tools.Kibana.GetDeployment(esSpec)
 	existingKibanaService, kibanaService := tools.Kibana.GetService()
 
 	errDep := r.client.Get(context.TODO(), types.NamespacedName{Name: kibana.Name, Namespace: kibana.Namespace}, existingKibana)
@@ -199,7 +237,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 			if err = createK8sObject(instance, kibana, r); err != nil {
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return requeAfter(5, nil)
 		}
 
 		if errSer != nil && errors.IsNotFound(errSer) {
@@ -207,7 +245,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 			if err = createK8sObject(instance, kibanaService, r); err != nil {
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return requeAfter(5, nil)
 		}
 	} else {
 		if errDep == nil {
@@ -215,7 +253,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 			if err = r.client.Delete(context.TODO(), existingKibana); err != nil {
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return requeAfter(5, nil)
 		}
 
 		if errSer == nil {
@@ -223,7 +261,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 			if err = r.client.Delete(context.TODO(), existingKibanaService); err != nil {
 				return reconcile.Result{}, err
 			}
-			return reconcile.Result{Requeue: true}, nil
+			return requeAfter(5, nil)
 		}
 	}
 
@@ -234,18 +272,18 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 		if err = createK8sObject(instance, fluentDConfigMap, r); err != nil {
 			return reconcile.Result{}, err
 		} else {
-			return reconcile.Result{Requeue: true}, nil
+			return requeAfter(5, nil)
 		}
 	}
 
-	existingFluentD, fluentDDaemonSet := tools.FluentD.GetDaemonSet(&esSpec)
+	existingFluentD, fluentDDaemonSet := tools.FluentD.GetDaemonSet(esSpec)
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: fluentDDaemonSet.Name, Namespace: fluentDDaemonSet.Namespace}, existingFluentD)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating FluentD DaemonSet")
 		if err := createK8sObject(instance, fluentDDaemonSet, r); err != nil {
 			return reconcile.Result{}, err
 		} else {
-			return reconcile.Result{Requeue: true}, nil
+			return requeAfter(5, nil)
 		}
 	}
 
@@ -264,7 +302,7 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 			reqLogger.Error(err, "Failed")
 		} else {
 			err = r.client.Delete(context.TODO(), existingFluentBitDaemonSet)
-			return reconcile.Result{Requeue: true}, nil
+			return requeAfter(5, nil)
 		}
 	}
 
@@ -279,11 +317,24 @@ func (r *ReconcileLogManagement) Reconcile(request reconcile.Request) (reconcile
 			reqLogger.Error(err, "Failed")
 		} else {
 			err = r.client.Delete(context.TODO(), existingFluentD)
-			return reconcile.Result{Requeue: true}, nil
+			return requeAfter(5, nil)
 		}
 	}
 
-	return reconcile.Result{}, nil
+	if esSpec.CurrentHost != esSpec.PrevHost {
+		reqLogger.Info("Elasticsearch service recreated. Re-configuring Kibana and FluentD")
+		if err = r.client.Delete(context.TODO(), existingKibana); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		if err = r.client.Delete(context.TODO(), existingFluentD); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		esSpec.PrevHost = esSpec.CurrentHost
+		esSpec.PrevPort = esSpec.CurrentPort
+	}
+	return requeAfter(5, nil)
 }
 
 func createK8sObject(instance *loggingv1alpha1.LogManagement, obj v1.Object, r *ReconcileLogManagement) error {
@@ -315,18 +366,7 @@ func createK8sObject(instance *loggingv1alpha1.LogManagement, obj v1.Object, r *
 	return err
 }
 
-func updateSpec(cr *loggingv1alpha1.LogManagement) {
-	var inputs []loggingv1alpha1.Input
-	for _, watcher := range cr.Spec.Watch {
-		input := loggingv1alpha1.Input{
-			DeploymentName: "*_" + watcher.Namespace + "_*",
-			Tag:            watcher.Namespace,
-			Parsers:        watcher.Parsers,
-			Outputs:        watcher.Outputs,
-		}
-
-		inputs = append(inputs, input)
-	}
-	cr.Spec.Watch = nil
-	cr.Spec.Inputs = inputs
+func requeAfter(sec int, err error) (reconcile.Result, error) {
+	t := time.Duration(sec)
+	return reconcile.Result{RequeueAfter: time.Second * t}, err
 }
