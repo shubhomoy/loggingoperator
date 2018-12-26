@@ -5,7 +5,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: logging-operator
-  namespace: default
+  namespace: logging
 roleRef:
   kind: ClusterRole
   name: logging-operator

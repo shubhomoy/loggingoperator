@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: logging-operator
+  namespace: logging
 spec:
   replicas: 1
   selector:
@@ -16,13 +17,13 @@ spec:
       containers:
         - name: logging-operator
           # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: log-manager:v1
           ports:
           - containerPort: 60000
             name: metrics
           command:
           - logging-operator
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           readinessProbe:
             exec:
               command:
