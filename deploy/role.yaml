@@ -20,25 +20,7 @@ rules:
   - clusterroles
   - clusterrolebindings
   - namespaces
-  verbs:
-  - "*"
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - daemonsets
-  - replicasets
-  - statefulsets
-  - services
-  - configmaps
-  verbs:
-  - "*"
+  verbs: ["get", "watch", "list", "update", "delete", "create"]
 - apiGroups:
   - monitoring.coreos.com
   resources:
