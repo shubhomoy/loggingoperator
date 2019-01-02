@@ -1,0 +1,42 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: logging
+spec:
+  selector:
+    matchLabels:
+      run: kibana
+  template:
+    metadata:
+      labels:
+        run: kibana
+    spec:
+      containers:
+      - name: kibana
+        image: docker.elastic.co/kibana/kibana:6.4.2
+        env:
+        - name: ELASTICSEARCH_URL
+          value: "http://$(ELASTICSEARCH_SERVICE_HOST):80"
+        - name: XPACK_SECURITY_ENABLED
+          value: "true"
+        ports:
+        - containerPort: 5601
+          name: http
+          protocol: TCP
+
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: kibana
+  namespace: logging
+spec:
+  selector:
+    run: kibana
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 5601
+  type: "LoadBalancer"

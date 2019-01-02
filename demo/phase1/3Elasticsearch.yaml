@@ -1,0 +1,34 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: elasticsearch
+  namespace: logging
+spec:
+  selector:
+    matchLabels:
+      run: elasticsearch
+  template:
+    metadata:
+      labels:
+        run: elasticsearch
+    spec:
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:6.4.2
+        ports:
+        - containerPort: 9200
+
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: elasticsearch
+  namespace: logging
+spec:
+  selector:
+    run: elasticsearch
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 9200

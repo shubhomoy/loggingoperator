@@ -17,13 +17,12 @@ spec:
     - namespace: default
       deployments:
         - name: sample-pod
-        - name: test-pod
       parsers:
         - name: apache
         - name: apache_error
       outputs:
         - type: elasticsearch
-          index-pattern: sit
+          index-pattern: sample
   parsers:
     - name: apache
       regex: '^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<log_time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>.*)")?$'

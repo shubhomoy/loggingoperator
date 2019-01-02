@@ -1,0 +1,56 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: logmanagements.logging.jiocloud.com
+spec:
+  group: logging.jiocloud.com
+  names:
+    kind: LogManagement
+    listKind: LogManagementList
+    plural: logmanagements
+    singular: logmanagement
+  scope: Namespaced
+  version: v1alpha1
+
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logging-operator
+  namespace: logging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: logging-operator
+  template:
+    metadata:
+      labels:
+        name: logging-operator
+    spec:
+      serviceAccountName: logging-operator
+      containers:
+        - name: logging-operator
+          # Replace this with the built image name
+          image: log-manager:v1
+          ports:
+          - containerPort: 60000
+            name: metrics
+          command:
+          - logging-operator
+          imagePullPolicy: IfNotPresent
+          readinessProbe:
+            exec:
+              command:
+                - stat
+                - /tmp/operator-sdk-ready
+            initialDelaySeconds: 4
+            periodSeconds: 10
+            failureThreshold: 1
+          env:
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: OPERATOR_NAME
+              value: "logging-operator"
